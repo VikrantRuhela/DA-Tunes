@@ -161,9 +161,9 @@ class AboutPage extends ConsumerWidget {
                   children: [
                     _buildVersionRow(context, 'App Name', 'DA Tunes'),
                     const Divider(height: 1, color: Colors.white10),
-                    _buildVersionRow(context, 'Version', '1.1.0'),
+                    _buildVersionRow(context, 'Version', '1.1.1'),
                     const Divider(height: 1, color: Colors.white10),
-                    _buildVersionRow(context, 'Build Number', '110'),
+                    _buildVersionRow(context, 'Build Number', '111'),
                     const Divider(height: 1, color: Colors.white10),
                     _buildVersionRow(context, 'Release Channel', 'Stable'),
                     const Divider(height: 1, color: Colors.white10),

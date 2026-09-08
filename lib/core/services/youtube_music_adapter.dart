@@ -1416,6 +1416,23 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
     return scored.first.video;
   }
 
+  static const yt.YoutubeApiClient _visionosClient = yt.YoutubeApiClient({
+    'context': {
+      'client': {
+        'clientName': 'VISIONOS',
+        'clientVersion': '1.02',
+        'deviceMake': 'Apple',
+        'deviceModel': 'RealityDevice17,1',
+        'userAgent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15',
+        'osName': 'visionOS',
+        'osVersion': '26.5.23O471',
+        'hl': 'en',
+        'gl': 'US',
+        'utcOffsetMinutes': 0,
+      }
+    }
+  }, 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false');
+
   @override
   Future<AudioStream> getAudioStream(String id) async {
     _checkInitialized();
@@ -1468,8 +1485,9 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
       final manifest = await _ytClient.videos.streamsClient.getManifest(
         id,
         ytClients: [
-          yt.YoutubeApiClient.androidVr,
+          _visionosClient,
           yt.YoutubeApiClient.android,
+          yt.YoutubeApiClient.androidSdkless,
         ],
       ).timeout(const Duration(milliseconds: 15000));
       
@@ -1519,8 +1537,9 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
             final manifest = await _ytClient.videos.streamsClient.getManifest(
               fallbackId,
               ytClients: [
-                yt.YoutubeApiClient.androidVr,
+                _visionosClient,
                 yt.YoutubeApiClient.android,
+                yt.YoutubeApiClient.androidSdkless,
               ],
             ).timeout(const Duration(milliseconds: 15000));
 

@@ -213,6 +213,8 @@ class LocalStreamProxy {
       
       for (int attempt = 1; attempt <= retryCount; attempt++) {
         try {
+          DALogger.info('LocalStreamProxy DIAGNOSTIC: incoming method=${request.method}, headers:');
+          request.headers.forEach((k, v) => DALogger.info('  [Header] $k: $v'));
           failureStage = 'Opening connection (Attempt $attempt)';
           final forwardReq = await client.openUrl(request.method, targetUri)
               .timeout(const Duration(milliseconds: timeoutMs));
@@ -240,7 +242,9 @@ class LocalStreamProxy {
           redirectChain = forwardRes.redirects.map((r) => r.location.toString()).toList();
 
           if (httpStatusCode >= 400) {
-            throw HttpException('Server returned status code $httpStatusCode');
+            final body = await forwardRes.transform(SystemEncoding().decoder).join();
+            DALogger.error('LocalStreamProxy DIAGNOSTIC: CDN 4xx body: $body');
+            throw HttpException('Server returned status code $httpStatusCode: $body');
           }
           
           // Copy status code and headers back to client
