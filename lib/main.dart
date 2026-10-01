@@ -303,7 +303,6 @@ void main([List<String> args = const []]) async {
       final startTime = DateTime.now();
       debugPrint(' [Shutdown] Starting clean shutdown sequence...');
 
-      // 1. Stop audio player
       final stopPlayerTime = DateTime.now();
       try {
         final playbackEngine = container.read(playbackEngineProvider);
@@ -313,7 +312,6 @@ void main([List<String> args = const []]) async {
         debugPrint(' [Shutdown] Audio player disposal failed: $e');
       }
 
-      // 2. Stop local stream proxy
       final stopProxyTime = DateTime.now();
       try {
         final proxy = container.read(localStreamProxyProvider);
@@ -323,7 +321,6 @@ void main([List<String> args = const []]) async {
         debugPrint(' [Shutdown] Local stream proxy stop failed: $e');
       }
 
-      // 3. Close database connection
       final stopDbTime = DateTime.now();
       try {
         final db = container.read(appDatabaseProvider);
@@ -333,7 +330,6 @@ void main([List<String> args = const []]) async {
         debugPrint(' [Shutdown] Database close failed: $e');
       }
 
-      // 4. Dispose ProviderContainer
       final disposeContainerTime = DateTime.now();
       container.dispose();
       debugPrint(' [Shutdown] Riverpod container disposed in ${DateTime.now().difference(disposeContainerTime).inMilliseconds}ms');
@@ -347,7 +343,6 @@ void main([List<String> args = const []]) async {
     goRouter.go('/welcome');
   };
 
-  // Trigger non-blocking background initialization of MediaSession, Account Service, and Sync
   unawaited(_performPostAppLaunchInitialization(container));
 
   StartupTracker.endStep(mainStep, success: true);
@@ -391,10 +386,9 @@ class DAMusicApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeData = ref.watch(dynamicThemeProvider);
+    final themeData = ref.watch(activeThemeProvider);
     final goRouter = ref.watch(goRouterProvider);
 
-    // Watch session login transitions to automatically trigger initial library sync
     ref.listen<SessionManager>(sessionManagerProvider, (previous, next) {
       if (next.isLoggedIn && !(previous?.isLoggedIn ?? false)) {
         ref.read(ytmSyncManagerProvider.notifier).startSync();

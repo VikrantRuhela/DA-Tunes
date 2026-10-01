@@ -1,11 +1,10 @@
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/extensions/context_extensions.dart';
-import '../../core/services/device_memory_manager.dart';
 import '../providers/player_providers.dart';
 import '../providers/library_providers.dart';
+import '../providers/theme_providers.dart';
 
 class BlurredBackgroundCache {
   static final Map<String, Widget> _cache = {};
@@ -25,11 +24,9 @@ class BlurredBackground extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. Base dark background
         Container(
           color: Colors.black,
         ),
-        // 2. Artwork image overlay
         Opacity(
           opacity: 0.85,
           child: imageUrl.startsWith('http://') || imageUrl.startsWith('https://')
@@ -53,7 +50,6 @@ class BlurredBackground extends StatelessWidget {
                       errorBuilder: (context, error, stackTrace) => Container(color: Colors.black),
                     )),
         ),
-        // 3. Subtle dark vignette
         Container(
           decoration: BoxDecoration(
             gradient: RadialGradient(
@@ -80,14 +76,16 @@ class AmbientBackground extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.daColors;
+    final themeMode = ref.watch(appThemeModeProvider);
     final showAlbumArt = ref.watch(showAlbumArtBackgroundProvider);
     final currentSong = ref.watch(currentSongProvider);
     final String? artworkUrl = currentSong?.artworkUrl;
-    final isLowRam = !ref.watch(enableExtraEffectsProvider);
 
     Widget backgroundWidget;
 
-    if (showAlbumArt && artworkUrl != null && artworkUrl.isNotEmpty) {
+    if (themeMode == AppThemeMode.amoled) {
+      backgroundWidget = Container(color: Colors.black);
+    } else if (showAlbumArt && artworkUrl != null && artworkUrl.isNotEmpty) {
       backgroundWidget = AnimatedSwitcher(
         duration: const Duration(milliseconds: 400),
         transitionBuilder: (child, animation) {
@@ -101,7 +99,6 @@ class AmbientBackground extends ConsumerWidget {
     } else {
       backgroundWidget = Stack(
         children: [
-          // Base dark wine/black gradient
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -114,8 +111,6 @@ class AmbientBackground extends ConsumerWidget {
               ),
             ),
           ),
-
-          // Layer 2: Primary accent blurred blob (top-left/center-left)
           Positioned(
             left: -150,
             top: -150,
@@ -133,8 +128,6 @@ class AmbientBackground extends ConsumerWidget {
               ),
             ),
           ),
-
-          // Layer 3: Secondary accent blurred blob (bottom-right)
           Positioned(
             right: -200,
             bottom: -100,
@@ -152,8 +145,6 @@ class AmbientBackground extends ConsumerWidget {
               ),
             ),
           ),
-
-          // Layer 4: Vignette overlay
           Container(
             decoration: BoxDecoration(
               gradient: RadialGradient(

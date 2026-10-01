@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +9,7 @@ import '../../../../../core/extensions/context_extensions.dart';
 import '../../../../../app/theme/tokens.dart';
 import '../../../../../shared/providers/player_providers.dart';
 import '../../../../../shared/providers/library_providers.dart';
+import '../../../../../shared/providers/theme_providers.dart';
 import '../../../../../shared/models/playback_state.dart';
 import '../../../../../shared/models/music_models.dart';
 import '../../../../../shared/utils/song_options.dart';
@@ -115,103 +116,107 @@ class ImmersivePlayer extends ConsumerWidget {
 
     final colors = context.daColors;
 
+    final isM3 = ref.watch(appThemeModeProvider) == AppThemeMode.material3;
+
     Widget playerWidget;
-    switch (style) {
-      case PlayerStyle.vinyl:
-        playerWidget = const _VinylStylePlayer();
-        break;
-      case PlayerStyle.minimal:
-        playerWidget = const _MinimalStylePlayer();
-        break;
-      case PlayerStyle.immersive:
-      default:
-        playerWidget = useLandscapePlayer ? const _WindowsImmersivePlayer() : const _ImmersiveStylePlayer();
-        break;
+    if (isM3) {
+      playerWidget = const _Material3Player();
+    } else {
+      switch (style) {
+        case PlayerStyle.vinyl:
+          playerWidget = const _VinylStylePlayer();
+          break;
+        case PlayerStyle.minimal:
+          playerWidget = const _MinimalStylePlayer();
+          break;
+        case PlayerStyle.immersive:
+        default:
+          playerWidget = useLandscapePlayer ? const _WindowsImmersivePlayer() : const _ImmersiveStylePlayer();
+          break;
+      }
     }
 
     final currentSong = ref.watch(currentSongProvider);
     final artworkUrl = currentSong?.artworkUrl;
     final isLowRam = !ref.watch(enableExtraEffectsProvider);
     final isVinylOrMinimal = style == PlayerStyle.vinyl || style == PlayerStyle.minimal;
+    final isAmoled = ref.watch(appThemeModeProvider) == AppThemeMode.amoled;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // Layer 1: Solid background generated from dominant/accent color
           Positioned.fill(
             child: Container(
-              color: colors.background,
+              color: isAmoled ? Colors.black : colors.background,
             ),
           ),
-          // Subtle Animated blobs overlay
-          Positioned.fill(
-            child: SubtleAmbientBlobs(
-              primaryColor: colors.primary,
-              accentColor: colors.accent,
+          if (!isAmoled) ...[
+            Positioned.fill(
+              child: SubtleAmbientBlobs(
+                primaryColor: colors.primary,
+                accentColor: colors.accent,
+              ),
             ),
-          ),
-
-          // Layer 2: Adaptive background rendering based on device capability & style
-          if (artworkUrl != null && artworkUrl.isNotEmpty) ...[
-            if (!isLowRam || isVinylOrMinimal) ...[
-              Positioned.fill(
-                child: Opacity(
-                  opacity: 0.40,
-                  child: DAImage(
-                    url: artworkUrl,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(
-                    sigmaX: isLowRam ? 32.0 : 40.0,
-                    sigmaY: isLowRam ? 32.0 : 40.0,
-                  ),
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-            ] else ...[
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        colors.gradientStart.withValues(alpha: 0.8),
-                        colors.gradientMiddle,
-                        colors.gradientEnd,
-                      ],
+            if (artworkUrl != null && artworkUrl.isNotEmpty) ...[
+              if (!isLowRam || isVinylOrMinimal) ...[
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.40,
+                    child: DAImage(
+                      url: artworkUrl,
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
-              ),
-              Positioned.fill(
-                child: ShaderMask(
-                  shaderCallback: (rect) {
-                    return LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.35),
-                        Colors.transparent,
-                      ],
-                      stops: const [0.0, 0.7],
-                    ).createShader(rect);
-                  },
-                  blendMode: BlendMode.dstIn,
-                  child: DAImage(
-                    url: artworkUrl,
-                    fit: BoxFit.cover,
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(
+                      sigmaX: isLowRam ? 32.0 : 40.0,
+                      sigmaY: isLowRam ? 32.0 : 40.0,
+                    ),
+                    child: Container(color: Colors.transparent),
                   ),
                 ),
-              ),
+              ] else ...[
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          colors.gradientStart.withValues(alpha: 0.8),
+                          colors.gradientMiddle,
+                          colors.gradientEnd,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: ShaderMask(
+                    shaderCallback: (rect) {
+                      return LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.35),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.7],
+                      ).createShader(rect);
+                    },
+                    blendMode: BlendMode.dstIn,
+                    child: DAImage(
+                      url: artworkUrl,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ],
-          // The actual player UI
           Positioned.fill(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 400),
@@ -2456,6 +2461,293 @@ class _MinimalPlayerProgressBarSectionState extends ConsumerState<_MinimalPlayer
           ),
         ),
       ],
+    );
+  }
+}
+
+class _Material3Player extends ConsumerStatefulWidget {
+  const _Material3Player();
+
+  @override
+  ConsumerState<_Material3Player> createState() => _Material3PlayerState();
+}
+
+class _Material3PlayerState extends ConsumerState<_Material3Player> {
+  int _activeTab = 0;
+  double? _dragValue;
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final currentSong = ref.watch(currentSongProvider);
+    final controller = ref.watch(playbackControllerProvider);
+    final isPlaying = controller.status == PlaybackStatus.playing;
+    final isLiked = currentSong != null && ref.watch(libraryManagerProvider).isSongLiked(currentSong.id);
+    final artworkUrl = currentSong?.artworkUrl;
+
+    final position = controller.position;
+    final duration = currentSong?.duration ?? Duration.zero;
+    final double realProgress = (duration.inMilliseconds > 0)
+        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+        : 0.0;
+    final double activeProgress = _dragValue ?? realProgress;
+
+    final displayPosition = _dragValue != null
+        ? Duration(milliseconds: (_dragValue! * duration.inMilliseconds).toInt())
+        : position;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 900;
+            final double artworkSize = isWide
+                ? (constraints.maxHeight * 0.45).clamp(180.0, 320.0)
+                : (constraints.maxWidth * 0.65).clamp(200.0, 340.0);
+
+            Widget playerContent = SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28.0),
+                        onPressed: () => ref.read(immersiveModeProvider.notifier).state = false,
+                      ),
+                      const Spacer(),
+                      Text(
+                        'PLAYING FROM QUEUE',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: Icon(isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded),
+                        color: isLiked ? Colors.redAccent : colorScheme.onSurfaceVariant,
+                        onPressed: currentSong != null
+                            ? () => ref.read(libraryManagerProvider.notifier).toggleLikeSong(currentSong)
+                            : null,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24.0),
+                  Center(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: artworkSize + 32.0,
+                          height: artworkSize + 32.0,
+                          child: CircularProgressIndicator(
+                            value: activeProgress,
+                            strokeWidth: 6.0,
+                            backgroundColor: colorScheme.surfaceContainerHighest,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                        Container(
+                          width: artworkSize,
+                          height: artworkSize,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.25),
+                                blurRadius: 20.0,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: ClipOval(
+                            child: DAImage(
+                              url: artworkUrl,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 28.0),
+                  Text(
+                    currentSong?.title ?? 'No Song Selected',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6.0),
+                  Text(
+                    currentSong?.artist ?? 'Unknown Artist',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 20.0),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 4.0,
+                      activeTrackColor: colorScheme.primary,
+                      inactiveTrackColor: colorScheme.surfaceContainerHighest,
+                      thumbColor: colorScheme.primary,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                    ),
+                    child: Slider(
+                      value: activeProgress,
+                      onChanged: (val) {
+                        setState(() {
+                          _dragValue = val;
+                        });
+                      },
+                      onChangeEnd: (val) {
+                        controller.seek(
+                          Duration(milliseconds: (val * duration.inMilliseconds).toInt()),
+                        );
+                        setState(() {
+                          _dragValue = null;
+                        });
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_formatDuration(displayPosition), style: theme.textTheme.labelSmall),
+                        Text(_formatDuration(duration), style: theme.textTheme.labelSmall),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24.0),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          ref.watch(shuffleProvider) ? Icons.shuffle_on_outlined : Icons.shuffle_rounded,
+                        ),
+                        color: ref.watch(shuffleProvider) ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                        onPressed: () => controller.toggleShuffle(),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.skip_previous_rounded, size: 36.0),
+                        color: colorScheme.onSurface,
+                        onPressed: () => controller.previous(),
+                      ),
+                      IconButton.filledTonal(
+                        iconSize: 42.0,
+                        icon: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                        onPressed: () {
+                          if (isPlaying) {
+                            controller.pause();
+                          } else {
+                            controller.resume();
+                          }
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.skip_next_rounded, size: 36.0),
+                        color: colorScheme.onSurface,
+                        onPressed: () => controller.next(),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          ref.watch(repeatModeProvider) == RepeatMode.one
+                              ? Icons.repeat_one_rounded
+                              : (ref.watch(repeatModeProvider) == RepeatMode.all ? Icons.repeat_on_rounded : Icons.repeat_rounded),
+                        ),
+                        color: ref.watch(repeatModeProvider) != RepeatMode.off ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                        onPressed: () {
+                          final currentMode = ref.read(repeatModeProvider);
+                          RepeatMode nextMode;
+                          if (currentMode == RepeatMode.off) {
+                            nextMode = RepeatMode.all;
+                          } else if (currentMode == RepeatMode.all) {
+                            nextMode = RepeatMode.one;
+                          } else {
+                            nextMode = RepeatMode.off;
+                          }
+                          controller.setRepeatMode(nextMode);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+
+            if (isWide) {
+              return Row(
+                children: [
+                  Expanded(flex: 1, child: playerContent),
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      margin: const EdgeInsets.all(16.0),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainer,
+                        borderRadius: BorderRadius.circular(24.0),
+                      ),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: SegmentedButton<int>(
+                                    segments: const [
+                                      ButtonSegment(value: 0, label: Text('Lyrics')),
+                                      ButtonSegment(value: 1, label: Text('Queue')),
+                                    ],
+                                    selected: {_activeTab},
+                                    onSelectionChanged: (val) {
+                                      setState(() {
+                                        _activeTab = val.first;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: _activeTab == 0
+                                ? const _WindowsLyricsTab(key: ValueKey('lyrics'))
+                                : const _WindowsQueueTab(key: ValueKey('queue')),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return playerContent;
+          },
+        ),
+      ),
     );
   }
 }

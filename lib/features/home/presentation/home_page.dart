@@ -158,7 +158,6 @@ final homeFeedProvider = FutureProvider<HomeFeed>((ref) async {
       }).toList();
       return HomeFeed(sections: filteredSections);
     }
-    // Return empty fallback feed
     return HomeFeed(sections: [
       HomeFeedSection(title: 'Recommended for You', type: 'recommended', items: const []),
       HomeFeedSection(title: 'Trending Albums', type: 'albums', items: const []),
@@ -302,7 +301,6 @@ class _HomePageState extends ConsumerState<HomePage> {
 
             for (final section in sections) {
               if (section.items.isEmpty) continue;
-              if (section.type == 'because_you_listened' || section.type == 'made_for_you') continue;
 
               final List<Widget> cards = [];
 

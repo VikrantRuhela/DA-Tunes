@@ -8,6 +8,7 @@ import '../../core/services/device_memory_manager.dart';
 import '../../app/theme/tokens.dart';
 import '../../shared/providers/player_providers.dart';
 import '../../shared/providers/library_providers.dart';
+import '../../shared/providers/theme_providers.dart';
 import '../../shared/animations/motion_system.dart';
 import 'custom_title_bar.dart';
 import '../../features/player/presentation/widgets/mini_player.dart';
@@ -107,28 +108,23 @@ class _AppShellState extends ConsumerState<AppShell> {
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
 
-        // 1. If full-screen immersive player is open, close immersive mode first
         if (ref.read(immersiveModeProvider)) {
           ref.read(immersiveModeProvider.notifier).state = false;
           return;
         }
 
-        // 2. Check if shellNavigatorKey can pop nested screens (e.g. /album/:id -> /library)
         if (shellNavigatorKey.currentState != null && shellNavigatorKey.currentState!.canPop()) {
           shellNavigatorKey.currentState!.pop();
           return;
         }
 
-        // 3. Check current location
         final location = GoRouterState.of(context).matchedLocation;
 
-        // 4. If on any tab/page other than Home ('/'), navigate back to Home
         if (location != '/') {
           context.go('/');
           return;
         }
 
-        // 5. If already on Home ('/'), exit app naturally
         SystemNavigator.pop();
       },
       child: TastePlaybackObserver(
@@ -325,13 +321,42 @@ class _AndroidBottomDock extends ConsumerWidget {
   }
 }
 
-class _MobileBottomNavBar extends StatelessWidget {
+class _MobileBottomNavBar extends ConsumerWidget {
   const _MobileBottomNavBar();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.daColors;
     final location = GoRouterState.of(context).matchedLocation;
+    final isM3 = ref.watch(appThemeModeProvider) == AppThemeMode.material3;
+
+    if (isM3) {
+      int selectedIndex = 0;
+      if (location.startsWith('/search')) selectedIndex = 1;
+      else if (location.startsWith('/library')) selectedIndex = 2;
+      else if (location.startsWith('/favorites')) selectedIndex = 3;
+      else if (location.startsWith('/settings')) selectedIndex = 4;
+
+      return NavigationBar(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (index) {
+          switch (index) {
+            case 0: context.go('/'); break;
+            case 1: context.go('/search'); break;
+            case 2: context.go('/library'); break;
+            case 3: context.go('/favorites'); break;
+            case 4: context.go('/settings'); break;
+          }
+        },
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.search_outlined), selectedIcon: Icon(Icons.search_rounded), label: 'Search'),
+          NavigationDestination(icon: Icon(Icons.my_library_music_outlined), selectedIcon: Icon(Icons.my_library_music_rounded), label: 'Library'),
+          NavigationDestination(icon: Icon(Icons.favorite_outline_rounded), selectedIcon: Icon(Icons.favorite_rounded), label: 'Favorites'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings_rounded), label: 'Settings'),
+        ],
+      );
+    }
 
     return Container(
       height: 64.0,
