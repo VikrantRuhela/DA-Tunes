@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'dart:ui';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../core/extensions/context_extensions.dart';
@@ -13,6 +13,8 @@ import '../../../../../shared/utils/song_options.dart';
 import '../../../../../shared/widgets/da_image.dart';
 import '../../../../../core/services/device_memory_manager.dart';
 import 'immersive_player.dart';
+import '../../../../../shared/providers/theme_providers.dart';
+import '../../../../../shared/widgets/m3_play_pause_button.dart';
 
 class _RoundedTrackShape extends SliderTrackShape {
   const _RoundedTrackShape();
@@ -254,6 +256,9 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
     final typography = context.daTypography;
     final playbackState = ref.watch(playbackStateProvider);
     final style = ref.watch(playerStyleProvider);
+    final themeMode = ref.watch(appThemeModeProvider);
+    final isM3 = themeMode == AppThemeMode.material3;
+    final isAmoled = themeMode == AppThemeMode.amoled;
 
     final isPlaying = playbackState.status == PlaybackStatus.playing;
     final isLiked = ref.watch(libraryManagerProvider).isSongLiked(currentSong.id);
@@ -277,7 +282,7 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
 
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
     final double bottom = (1.0 - t) * (82.0 + bottomPadding);
-    final double height = 64.0 + t * (screenHeight - 64.0 - bottom);
+    final double height = 74.0 + t * (screenHeight - 74.0 - bottom);
     final double left = (1.0 - t) * 16.0;
     final double right = (1.0 - t) * 16.0;
     final double radius = (1.0 - t) * DATokens.radiusLarge;
@@ -362,83 +367,90 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
                             opacity: t,
                             child: Stack(
                               children: [
-                                // Layer 1: Solid background generated from dominant/accent color
                                 Positioned.fill(
                                   child: Container(
-                                    color: colors.background,
+                                    color: isAmoled ? Colors.black : colors.background,
                                   ),
                                 ),
-                                // Subtle Animated blobs overlay
-                                Positioned.fill(
-                                  child: SubtleAmbientBlobs(
-                                    primaryColor: colors.primary,
-                                    accentColor: colors.accent,
+                                if (!isAmoled) ...[
+                                  Positioned.fill(
+                                    child: SubtleAmbientBlobs(
+                                      primaryColor: colors.primary,
+                                      accentColor: colors.accent,
+                                    ),
                                   ),
-                                ),
-                                 // Layer 2: Adaptive background rendering based on device capability & style
-                                 if (artworkUrl != null && artworkUrl.isNotEmpty) ...[
-                                   if (!isLowRam || (style == PlayerStyle.vinyl || style == PlayerStyle.minimal)) ...[
-                                     Positioned.fill(
-                                       child: Opacity(
-                                         opacity: 0.40,
-                                         child: DAImage(
-                                           url: artworkUrl,
-                                           fit: BoxFit.cover,
-                                         ),
-                                       ),
-                                     ),
-                                     Positioned.fill(
-                                       child: BackdropFilter(
-                                         filter: ImageFilter.blur(
-                                           sigmaX: isLowRam ? 32.0 : 40.0,
-                                           sigmaY: isLowRam ? 32.0 : 40.0,
-                                         ),
-                                         child: Container(color: Colors.transparent),
-                                       ),
-                                     ),
-                                   ] else ...[
-                                     Positioned.fill(
-                                       child: Container(
-                                         decoration: BoxDecoration(
-                                           gradient: LinearGradient(
-                                             begin: Alignment.topCenter,
-                                             end: Alignment.bottomCenter,
-                                             colors: [
-                                               colors.gradientStart.withValues(alpha: 0.8),
-                                               colors.gradientMiddle,
-                                               colors.gradientEnd,
-                                             ],
-                                           ),
-                                         ),
-                                       ),
-                                     ),
-                                     Positioned.fill(
-                                       child: ShaderMask(
-                                         shaderCallback: (rect) {
-                                           return LinearGradient(
-                                             begin: Alignment.topCenter,
-                                             end: Alignment.bottomCenter,
-                                             colors: [
-                                               Colors.black.withValues(alpha: 0.35),
-                                               Colors.transparent,
-                                             ],
-                                             stops: const [0.0, 0.7],
-                                           ).createShader(rect);
-                                         },
-                                         blendMode: BlendMode.dstIn,
-                                         child: DAImage(
-                                           url: artworkUrl,
-                                           fit: BoxFit.cover,
-                                         ),
-                                       ),
-                                     ),
-                                   ],
-                                 ],
+                                  if (artworkUrl != null && artworkUrl.isNotEmpty) ...[
+                                    if (!isLowRam || (style == PlayerStyle.vinyl || style == PlayerStyle.minimal)) ...[
+                                      Positioned.fill(
+                                        child: Opacity(
+                                          opacity: 0.40,
+                                          child: DAImage(
+                                            url: artworkUrl,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned.fill(
+                                        child: BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                            sigmaX: isLowRam ? 32.0 : 40.0,
+                                            sigmaY: isLowRam ? 32.0 : 40.0,
+                                          ),
+                                          child: Container(color: Colors.transparent),
+                                        ),
+                                      ),
+                                    ] else ...[
+                                      Positioned.fill(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                colors.gradientStart.withValues(alpha: 0.8),
+                                                colors.gradientMiddle,
+                                                colors.gradientEnd,
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned.fill(
+                                        child: ShaderMask(
+                                          shaderCallback: (rect) {
+                                            return LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                Colors.black.withValues(alpha: 0.35),
+                                                Colors.transparent,
+                                              ],
+                                              stops: const [0.0, 0.7],
+                                            ).createShader(rect);
+                                          },
+                                          blendMode: BlendMode.dstIn,
+                                          child: DAImage(
+                                            url: artworkUrl,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ],
                               ],
                             ),
                           ),
                         ),
-                      if (style == PlayerStyle.immersive) ...[
+                      if (isM3) ...[
+                        if (fullOpacity > 0.0)
+                          Positioned.fill(
+                            child: Opacity(
+                              opacity: fullOpacity,
+                              child: const Material3Player(),
+                            ),
+                          ),
+                      ] else if (style == PlayerStyle.immersive) ...[
                         Positioned(
                           left: artLeft,
                           top: artTop,
@@ -785,11 +797,12 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape || screenWidth >= 900;
+    final isM3 = ref.watch(appThemeModeProvider) == AppThemeMode.material3;
     return Positioned(
       left: 16.0,
       right: 16.0,
       bottom: 82.0 + bottomPadding,
-      height: 64.0,
+      height: 74.0,
       child: AnimatedSlide(
         offset: isLandscape ? const Offset(0, 2.5) : Offset.zero,
         duration: const Duration(milliseconds: 380),
@@ -805,12 +818,7 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
         },
         child: Container(
           decoration: BoxDecoration(
-            color: colors.surfaceCard.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(DATokens.radiusLarge),
-            border: Border.all(
-              color: colors.border.withValues(alpha: 0.2),
-              width: 1.0,
-            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.2),
@@ -826,7 +834,16 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
                 sigmaX: DeviceMemoryManager.instance.getRecommendedBlurSigma(16.0),
                 sigmaY: DeviceMemoryManager.instance.getRecommendedBlurSigma(16.0),
               ),
-              child: Stack(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colors.surfaceCard.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(DATokens.radiusLarge),
+                  border: Border.all(
+                    color: colors.border.withValues(alpha: 0.2),
+                    width: 1.0,
+                  ),
+                ),
+                child: Stack(
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -908,7 +925,8 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
         ),
       ),
     ),
-  );
+  ),
+);
   }
 }
 
@@ -954,11 +972,24 @@ class _SlidingPlayerProgressBarState extends ConsumerState<_SlidingPlayerProgres
           children: [
             IconButton(
               icon: Icon(
-                isLiked ? Icons.favorite : Icons.favorite_border,
-                color: isLiked ? Colors.redAccent : Colors.white70,
+                ref.watch(repeatModeProvider) == RepeatMode.one
+                    ? Icons.repeat_one_rounded
+                    : (ref.watch(repeatModeProvider) == RepeatMode.all ? Icons.repeat_on_rounded : Icons.repeat_rounded),
+                color: ref.watch(repeatModeProvider) != RepeatMode.off ? colors.primary : Colors.white70,
                 size: 22.0,
               ),
-              onPressed: () => ref.read(libraryManagerProvider.notifier).toggleLikeSong(currentSong),
+              onPressed: () {
+                final currentMode = ref.read(repeatModeProvider);
+                RepeatMode nextMode;
+                if (currentMode == RepeatMode.off) {
+                  nextMode = RepeatMode.all;
+                } else if (currentMode == RepeatMode.all) {
+                  nextMode = RepeatMode.one;
+                } else {
+                  nextMode = RepeatMode.off;
+                }
+                ref.read(playbackControllerProvider).setRepeatMode(nextMode);
+              },
             ),
             Expanded(
               child: SliderTheme(

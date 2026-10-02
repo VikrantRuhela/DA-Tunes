@@ -6,6 +6,7 @@ import '../models/music_models.dart';
 import '../models/playback_state.dart';
 import 'backend_providers.dart';
 import 'library_providers.dart';
+import 'theme_providers.dart';
 
 final immersiveModeProvider = StateProvider<bool>((ref) => false);
 
@@ -151,16 +152,24 @@ final sleepTimerNotifierProvider = StateNotifierProvider<SleepTimerNotifier, Sle
 
 enum PlayerStyle { immersive, vinyl, minimal }
 
-final playerStyleProvider = StateNotifierProvider<PlayerStyleNotifier, PlayerStyle>((ref) {
+final playerStyleNotifierProvider = StateNotifierProvider<PlayerStyleNotifier, PlayerStyle>((ref) {
   final storage = ref.watch(storageServiceProvider);
   return PlayerStyleNotifier(storage);
+});
+
+final playerStyleProvider = Provider<PlayerStyle>((ref) {
+  final themeMode = ref.watch(appThemeModeProvider);
+  if (themeMode == AppThemeMode.amoled) {
+    return PlayerStyle.immersive;
+  }
+  return ref.watch(playerStyleNotifierProvider);
 });
 
 class PlayerStyleNotifier extends StateNotifier<PlayerStyle> {
   final StorageService _storage;
   static const _key = 'player_style';
 
-  PlayerStyleNotifier(this._storage) : super(PlayerStyle.vinyl) {
+  PlayerStyleNotifier(this._storage) : super(PlayerStyle.immersive) {
     _load();
   }
 
@@ -169,7 +178,7 @@ class PlayerStyleNotifier extends StateNotifier<PlayerStyle> {
     if (val != null) {
       final matched = PlayerStyle.values.firstWhere(
         (e) => e.name == val,
-        orElse: () => PlayerStyle.vinyl,
+        orElse: () => PlayerStyle.immersive,
       );
       state = matched;
     }

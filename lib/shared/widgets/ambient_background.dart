@@ -85,6 +85,8 @@ class AmbientBackground extends ConsumerWidget {
 
     if (themeMode == AppThemeMode.amoled) {
       backgroundWidget = Container(color: Colors.black);
+    } else if (themeMode == AppThemeMode.material3) {
+      backgroundWidget = Container(color: Theme.of(context).colorScheme.surface);
     } else if (showAlbumArt && artworkUrl != null && artworkUrl.isNotEmpty) {
       backgroundWidget = AnimatedSwitcher(
         duration: const Duration(milliseconds: 400),

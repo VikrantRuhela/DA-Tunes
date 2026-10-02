@@ -40,7 +40,7 @@ class AboutPage extends ConsumerWidget {
     final duration = isReduced ? 150.ms : 450.ms;
 
     return Scaffold(
-      backgroundColor: Colors.black, // Dark AMOLED premium background
+      backgroundColor: colors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -62,15 +62,14 @@ class AboutPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Hero Banner
             Container(
               height: 180,
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24.0),
-                color: Colors.black,
+                color: colors.surfaceCard,
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.06),
+                  color: colors.border.withValues(alpha: 0.2),
                   width: 1.0,
                 ),
               ),
@@ -79,7 +78,6 @@ class AboutPage extends ConsumerWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Radial glow
                     Positioned.fill(
                       child: Container(
                         decoration: BoxDecoration(
@@ -93,13 +91,9 @@ class AboutPage extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    
-                    // Floating particles
                     const Positioned.fill(
                       child: FloatingParticlesWidget(),
                     ),
-                    
-                    // Vignette
                     Positioned.fill(
                       child: Container(
                         decoration: BoxDecoration(
@@ -107,9 +101,9 @@ class AboutPage extends ConsumerWidget {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Colors.black.withValues(alpha: 0.4),
+                              colors.background.withValues(alpha: 0.4),
                               Colors.transparent,
-                              Colors.black.withValues(alpha: 0.4),
+                              colors.background.withValues(alpha: 0.4),
                             ],
                           ),
                         ),
@@ -161,9 +155,9 @@ class AboutPage extends ConsumerWidget {
                   children: [
                     _buildVersionRow(context, 'App Name', 'DA Tunes'),
                     const Divider(height: 1, color: Colors.white10),
-                    _buildVersionRow(context, 'Version', '1.1.1'),
+                    _buildVersionRow(context, 'Version', '2.0'),
                     const Divider(height: 1, color: Colors.white10),
-                    _buildVersionRow(context, 'Build Number', '111'),
+                    _buildVersionRow(context, 'Build Number', '200'),
                     const Divider(height: 1, color: Colors.white10),
                     _buildVersionRow(context, 'Release Channel', 'Stable'),
                     const Divider(height: 1, color: Colors.white10),
@@ -566,7 +560,7 @@ class _SeamlessFeatureTickerWidgetState extends State<SeamlessFeatureTickerWidge
       height: 52,
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        color: Colors.black,
+        color: colors.surfaceCard,
         borderRadius: BorderRadius.circular(16.0),
         border: Border.all(
           color: colors.primary.withValues(alpha: 0.2),

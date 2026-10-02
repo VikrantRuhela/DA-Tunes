@@ -457,6 +457,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     return ListView(
       physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.only(
+        left: DATokens.spacingMedium,
+        right: DATokens.spacingMedium,
+        top: DATokens.spacingSmall,
+        bottom: Theme.of(context).platform == TargetPlatform.android ? 160.0 : DATokens.spacingSmall,
+      ),
       children: sections,
     );
   }

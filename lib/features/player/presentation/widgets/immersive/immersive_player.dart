@@ -20,6 +20,7 @@ import '../vinyl_player_widget.dart';
 import 'immersive_background.dart';
 import 'progress_section.dart';
 import 'playback_controls.dart';
+import '../../../../../shared/widgets/m3_play_pause_button.dart';
 
 class _RoundedTrackShape extends SliderTrackShape {
   const _RoundedTrackShape();
@@ -116,11 +117,13 @@ class ImmersivePlayer extends ConsumerWidget {
 
     final colors = context.daColors;
 
-    final isM3 = ref.watch(appThemeModeProvider) == AppThemeMode.material3;
+    final themeMode = ref.watch(appThemeModeProvider);
+    final isM3 = themeMode == AppThemeMode.material3;
+    final isAmoled = themeMode == AppThemeMode.amoled;
 
     Widget playerWidget;
     if (isM3) {
-      playerWidget = const _Material3Player();
+      playerWidget = const Material3Player();
     } else {
       switch (style) {
         case PlayerStyle.vinyl:
@@ -140,7 +143,6 @@ class ImmersivePlayer extends ConsumerWidget {
     final artworkUrl = currentSong?.artworkUrl;
     final isLowRam = !ref.watch(enableExtraEffectsProvider);
     final isVinylOrMinimal = style == PlayerStyle.vinyl || style == PlayerStyle.minimal;
-    final isAmoled = ref.watch(appThemeModeProvider) == AppThemeMode.amoled;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -392,12 +394,23 @@ class _WindowsImmersivePlayerState extends ConsumerState<_WindowsImmersivePlayer
                                     ),
                                   ),
                                   _PlaybackIconButton(
-                                    icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                                    color: isLiked ? Colors.redAccent : Colors.white70,
+                                    icon: ref.watch(repeatModeProvider) == RepeatMode.one
+                                        ? Icons.repeat_one_rounded
+                                        : (ref.watch(repeatModeProvider) == RepeatMode.all ? Icons.repeat_on_rounded : Icons.repeat_rounded),
+                                    color: ref.watch(repeatModeProvider) != RepeatMode.off ? colors.primary : Colors.white70,
                                     size: 24.0,
-                                    onPressed: currentSong != null
-                                        ? () => ref.read(libraryManagerProvider.notifier).toggleLikeSong(currentSong)
-                                        : null,
+                                    onPressed: () {
+                                      final currentMode = ref.read(repeatModeProvider);
+                                      RepeatMode nextMode;
+                                      if (currentMode == RepeatMode.off) {
+                                        nextMode = RepeatMode.all;
+                                      } else if (currentMode == RepeatMode.all) {
+                                        nextMode = RepeatMode.one;
+                                      } else {
+                                        nextMode = RepeatMode.off;
+                                      }
+                                      ref.read(playbackControllerProvider).setRepeatMode(nextMode);
+                                    },
                                   ),
                                   Builder(
                                     builder: (btnContext) => _PlaybackIconButton(
@@ -693,7 +706,7 @@ class _ImmersivePlaybackButtonState extends State<ImmersivePlaybackButton> {
   }
 }
 
-class _TabLyricLineWidget extends StatelessWidget {
+class _TabLyricLineWidget extends ConsumerWidget {
   final String text;
   final bool isActive;
   final int index;
@@ -714,11 +727,38 @@ class _TabLyricLineWidget extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cleanText = text.replaceAll(RegExp(r'<.*?>'), '').trim();
     final int distanceFromActive = (index - activeIndex).abs();
     final double targetBlur = isActive ? 0.0 : (distanceFromActive.toDouble() * 1.5).clamp(0.0, 8.0);
-    final double targetOpacity = isActive ? 1.0 : (0.45 / distanceFromActive).clamp(0.12, 0.45);
+    final double targetOpacity = isActive ? 1.0 : (0.45 / distanceFromActive).clamp(0.15, 0.45);
+
+    final themeMode = ref.watch(appThemeModeProvider);
+    final isM3 = themeMode == AppThemeMode.material3;
+    final m3Mode = ref.watch(m3ThemeModeProvider);
+    final isLightM3 = isM3 && m3Mode == M3ThemeMode.light;
+    final isDarkM3 = isM3 && m3Mode == M3ThemeMode.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    Color activeTextColor;
+    Color inactiveTextColor;
+    Color glowColor;
+
+    if (isLightM3) {
+      activeTextColor = colorScheme.primary;
+      inactiveTextColor = colorScheme.onSurfaceVariant;
+      glowColor = colorScheme.primary.withValues(alpha: 0.3);
+    } else if (isDarkM3) {
+      activeTextColor = colorScheme.primary;
+      inactiveTextColor = colorScheme.onSurfaceVariant;
+      glowColor = colorScheme.primary.withValues(alpha: 0.5);
+    } else {
+      activeTextColor = Colors.white;
+      inactiveTextColor = Colors.white;
+      glowColor = colors.primary.withValues(alpha: 0.5);
+    }
+
+    final double effectiveOpacity = isActive ? 1.0 : targetOpacity;
 
     return TweenAnimationBuilder<double>(
       duration: const Duration(milliseconds: 350),
@@ -728,7 +768,7 @@ class _TabLyricLineWidget extends StatelessWidget {
         return TweenAnimationBuilder<double>(
           duration: const Duration(milliseconds: 350),
           curve: Curves.easeOutCubic,
-          tween: Tween<double>(end: targetOpacity),
+          tween: Tween<double>(end: effectiveOpacity),
           builder: (context, opacityValue, child) {
             Widget textContent = Text(
               cleanText,
@@ -736,12 +776,12 @@ class _TabLyricLineWidget extends StatelessWidget {
                 fontFamily: 'Outfit',
                 fontSize: isActive ? 22.0 : 18.0,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
-                color: Colors.white,
+                color: isActive ? activeTextColor : inactiveTextColor.withValues(alpha: opacityValue),
                 height: 1.4,
                 shadows: isActive
                     ? [
                         Shadow(
-                          color: colors.primary.withValues(alpha: 0.5),
+                          color: glowColor,
                           blurRadius: 10.0,
                         ),
                       ]
@@ -784,11 +824,11 @@ class _TabLyricLineWidget extends StatelessWidget {
                         height: isActive ? 20.0 : 0.0,
                         margin: EdgeInsets.only(right: isActive ? 10.0 : 0.0),
                         decoration: BoxDecoration(
-                          color: colors.primary,
+                          color: isM3 ? colorScheme.primary : colors.primary,
                           borderRadius: BorderRadius.circular(2.0),
                           boxShadow: [
                             BoxShadow(
-                              color: colors.primary.withValues(alpha: 0.6),
+                              color: (isM3 ? colorScheme.primary : colors.primary).withValues(alpha: 0.6),
                               blurRadius: 8.0,
                             ),
                           ],
@@ -803,7 +843,9 @@ class _TabLyricLineWidget extends StatelessWidget {
                           timestampText!,
                           style: TextStyle(
                             fontSize: 11.0,
-                            color: Colors.white.withValues(alpha: isActive ? 0.6 : 0.2),
+                            color: isLightM3
+                                ? colorScheme.onSurfaceVariant.withValues(alpha: isActive ? 0.7 : 0.4)
+                                : Colors.white.withValues(alpha: isActive ? 0.6 : 0.2),
                             fontWeight: FontWeight.normal,
                           ),
                         ),
@@ -1127,13 +1169,33 @@ class _WindowsQueueTab extends ConsumerWidget {
         final song = queue[index];
         final isPlaying = index == currentIndex;
 
+        final isLightM3 = ref.watch(appThemeModeProvider) == AppThemeMode.material3 &&
+                          Theme.of(context).brightness == Brightness.light;
+        final colorScheme = Theme.of(context).colorScheme;
+
+        final cardBgColor = isLightM3
+            ? (isPlaying ? colorScheme.primary : colorScheme.primaryContainer)
+            : (isPlaying ? colors.primary.withOpacity(0.1) : Colors.white.withOpacity(0.04));
+
+        final titleTextColor = isLightM3
+            ? (isPlaying ? colorScheme.onPrimary : colorScheme.onPrimaryContainer)
+            : (isPlaying ? colors.primary : Colors.white);
+
+        final subtitleTextColor = isLightM3
+            ? (isPlaying ? colorScheme.onPrimary.withOpacity(0.8) : colorScheme.onPrimaryContainer.withOpacity(0.7))
+            : (isPlaying ? colors.primary.withOpacity(0.7) : Colors.white30);
+
+        final iconColor = isLightM3
+            ? (isPlaying ? colorScheme.onPrimary : colorScheme.onPrimaryContainer.withOpacity(0.6))
+            : (isPlaying ? colors.primary : Colors.white.withOpacity(0.3));
+
         return Container(
           key: ValueKey(song.id + '_' + index.toString()),
-          margin: const EdgeInsets.symmetric(vertical: 4.0),
+          margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 4.0),
           decoration: BoxDecoration(
-            color: isPlaying ? colors.primary.withOpacity(0.1) : Colors.transparent,
+            color: cardBgColor,
             borderRadius: BorderRadius.circular(12.0),
-            border: isPlaying ? Border.all(color: colors.primary.withOpacity(0.3)) : null,
+            border: isPlaying && !isLightM3 ? Border.all(color: colors.primary.withOpacity(0.3)) : null,
           ),
           child: ListTile(
             leading: Row(
@@ -1145,7 +1207,7 @@ class _WindowsQueueTab extends ConsumerWidget {
                     padding: const EdgeInsets.only(right: 8.0),
                     child: Icon(
                       Icons.drag_handle,
-                      color: Colors.white.withOpacity(0.3),
+                      color: iconColor,
                       size: 20.0,
                     ),
                   ),
@@ -1164,7 +1226,7 @@ class _WindowsQueueTab extends ConsumerWidget {
             title: Text(
               song.title,
               style: typography.body.copyWith(
-                color: isPlaying ? colors.primary : Colors.white,
+                color: titleTextColor,
                 fontWeight: isPlaying ? FontWeight.bold : FontWeight.normal,
               ),
               maxLines: 1,
@@ -1173,13 +1235,13 @@ class _WindowsQueueTab extends ConsumerWidget {
             subtitle: Text(
               song.artist,
               style: typography.caption.copyWith(
-                color: isPlaying ? colors.primary.withOpacity(0.7) : Colors.white30,
+                color: subtitleTextColor,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             trailing: isPlaying
-                ? Icon(Icons.volume_up, color: colors.primary, size: 20.0)
+                ? Icon(Icons.volume_up, color: titleTextColor, size: 20.0)
                 : null,
             onTap: () {
               ref.read(playbackControllerProvider).skipToQueueIndex(index);
@@ -1789,13 +1851,26 @@ class _ImmersiveActionRow extends ConsumerWidget {
           ),
           const _AudioVisualizer(),
           IconButton(
-            icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border),
-            color: isLiked ? Colors.redAccent : colors.textSecondary,
+            icon: Icon(
+              ref.watch(repeatModeProvider) == RepeatMode.one
+                  ? Icons.repeat_one_rounded
+                  : (ref.watch(repeatModeProvider) == RepeatMode.all ? Icons.repeat_on_rounded : Icons.repeat_rounded),
+            ),
+            color: ref.watch(repeatModeProvider) != RepeatMode.off ? colors.primary : colors.textSecondary,
             iconSize: 24.0,
-            tooltip: isLiked ? 'Remove from Favorites' : 'Add to Favorites',
-            onPressed: currentSong != null
-                ? () => ref.read(libraryManagerProvider.notifier).toggleLikeSong(currentSong)
-                : null,
+            tooltip: 'Repeat Mode',
+            onPressed: () {
+              final currentMode = ref.read(repeatModeProvider);
+              RepeatMode nextMode;
+              if (currentMode == RepeatMode.off) {
+                nextMode = RepeatMode.all;
+              } else if (currentMode == RepeatMode.all) {
+                nextMode = RepeatMode.one;
+              } else {
+                nextMode = RepeatMode.off;
+              }
+              ref.read(playbackControllerProvider).setRepeatMode(nextMode);
+            },
           ),
           IconButton(
             icon: const Icon(Icons.more_horiz_outlined),
@@ -2322,11 +2397,24 @@ class _VinylPlayerControlsSectionState extends ConsumerState<_VinylPlayerControl
           children: [
             IconButton(
               icon: Icon(
-                isLiked ? Icons.favorite : Icons.favorite_border,
-                color: isLiked ? Colors.redAccent : Colors.white70,
+                ref.watch(repeatModeProvider) == RepeatMode.one
+                    ? Icons.repeat_one_rounded
+                    : (ref.watch(repeatModeProvider) == RepeatMode.all ? Icons.repeat_on_rounded : Icons.repeat_rounded),
+                color: ref.watch(repeatModeProvider) != RepeatMode.off ? colors.primary : Colors.white70,
                 size: 22.0,
               ),
-              onPressed: () => ref.read(libraryManagerProvider.notifier).toggleLikeSong(currentSong),
+              onPressed: () {
+                final currentMode = ref.read(repeatModeProvider);
+                RepeatMode nextMode;
+                if (currentMode == RepeatMode.off) {
+                  nextMode = RepeatMode.all;
+                } else if (currentMode == RepeatMode.all) {
+                  nextMode = RepeatMode.one;
+                } else {
+                  nextMode = RepeatMode.off;
+                }
+                ref.read(playbackControllerProvider).setRepeatMode(nextMode);
+              },
             ),
             Expanded(
               child: SliderTheme(
@@ -2465,14 +2553,14 @@ class _MinimalPlayerProgressBarSectionState extends ConsumerState<_MinimalPlayer
   }
 }
 
-class _Material3Player extends ConsumerStatefulWidget {
-  const _Material3Player();
+class Material3Player extends ConsumerStatefulWidget {
+  const Material3Player({super.key});
 
   @override
-  ConsumerState<_Material3Player> createState() => _Material3PlayerState();
+  ConsumerState<Material3Player> createState() => _Material3PlayerState();
 }
 
-class _Material3PlayerState extends ConsumerState<_Material3Player> {
+class _Material3PlayerState extends ConsumerState<Material3Player> {
   int _activeTab = 0;
   double? _dragValue;
 
@@ -2482,9 +2570,34 @@ class _Material3PlayerState extends ConsumerState<_Material3Player> {
     return '$minutes:$seconds';
   }
 
+  void _updateSeekFromOffset(Offset localPosition, double widgetSize, Duration duration) {
+    if (duration.inMilliseconds <= 0) return;
+    final center = widgetSize / 2;
+    final dx = localPosition.dx - center;
+    final dy = localPosition.dy - center;
+    double angle = atan2(dy, dx) + (pi / 2);
+    if (angle < 0) angle += 2 * pi;
+    final progress = (angle / (2 * pi)).clamp(0.0, 1.0);
+    setState(() {
+      _dragValue = progress;
+    });
+  }
+
+  void _finalizeSeek(dynamic controller, Duration duration) {
+    if (_dragValue != null && duration.inMilliseconds > 0) {
+      controller.seek(
+        Duration(milliseconds: (_dragValue! * duration.inMilliseconds).toInt()),
+      );
+      setState(() {
+        _dragValue = null;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bool isDesktop = theme.platform == TargetPlatform.windows || theme.platform == TargetPlatform.macOS || theme.platform == TargetPlatform.linux;
     final colorScheme = theme.colorScheme;
     final currentSong = ref.watch(currentSongProvider);
     final controller = ref.watch(playbackControllerProvider);
@@ -2548,14 +2661,24 @@ class _Material3PlayerState extends ConsumerState<_Material3Player> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        SizedBox(
-                          width: artworkSize + 32.0,
-                          height: artworkSize + 32.0,
-                          child: CircularProgressIndicator(
-                            value: activeProgress,
-                            strokeWidth: 6.0,
-                            backgroundColor: colorScheme.surfaceContainerHighest,
-                            color: colorScheme.primary,
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onPanStart: (details) => _updateSeekFromOffset(details.localPosition, artworkSize + 32.0, duration),
+                          onPanUpdate: (details) => _updateSeekFromOffset(details.localPosition, artworkSize + 32.0, duration),
+                          onPanEnd: (_) => _finalizeSeek(controller, duration),
+                          onTapDown: (details) {
+                            _updateSeekFromOffset(details.localPosition, artworkSize + 32.0, duration);
+                            _finalizeSeek(controller, duration);
+                          },
+                          child: SizedBox(
+                            width: artworkSize + 32.0,
+                            height: artworkSize + 32.0,
+                            child: CircularProgressIndicator(
+                              value: activeProgress,
+                              strokeWidth: 8.0,
+                              backgroundColor: colorScheme.surfaceContainerHighest,
+                              color: colorScheme.primary,
+                            ),
                           ),
                         ),
                         Container(
@@ -2603,31 +2726,6 @@ class _Material3PlayerState extends ConsumerState<_Material3Player> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 20.0),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 4.0,
-                      activeTrackColor: colorScheme.primary,
-                      inactiveTrackColor: colorScheme.surfaceContainerHighest,
-                      thumbColor: colorScheme.primary,
-                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-                    ),
-                    child: Slider(
-                      value: activeProgress,
-                      onChanged: (val) {
-                        setState(() {
-                          _dragValue = val;
-                        });
-                      },
-                      onChangeEnd: (val) {
-                        controller.seek(
-                          Duration(milliseconds: (val * duration.inMilliseconds).toInt()),
-                        );
-                        setState(() {
-                          _dragValue = null;
-                        });
-                      },
-                    ),
-                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Row(
@@ -2649,14 +2747,29 @@ class _Material3PlayerState extends ConsumerState<_Material3Player> {
                         color: ref.watch(shuffleProvider) ? colorScheme.primary : colorScheme.onSurfaceVariant,
                         onPressed: () => controller.toggleShuffle(),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.skip_previous_rounded, size: 36.0),
-                        color: colorScheme.onSurface,
+                      IconButton.filledTonal(
+                        style: IconButton.styleFrom(
+                          backgroundColor: colorScheme.surfaceContainerHigh,
+                          foregroundColor: colorScheme.onSurface,
+                          fixedSize: const Size(56.0, 56.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(26.0),
+                              bottomLeft: Radius.circular(26.0),
+                              topRight: Radius.circular(8.0),
+                              bottomRight: Radius.circular(8.0),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.skip_previous_rounded, size: 30.0),
                         onPressed: () => controller.previous(),
                       ),
-                      IconButton.filledTonal(
-                        iconSize: 42.0,
-                        icon: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                      M3PlayPauseButton(
+                        isPlaying: isPlaying,
+                        size: 72.0,
+                        iconSize: 38.0,
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
                         onPressed: () {
                           if (isPlaying) {
                             controller.pause();
@@ -2665,9 +2778,21 @@ class _Material3PlayerState extends ConsumerState<_Material3Player> {
                           }
                         },
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.skip_next_rounded, size: 36.0),
-                        color: colorScheme.onSurface,
+                      IconButton.filledTonal(
+                        style: IconButton.styleFrom(
+                          backgroundColor: colorScheme.surfaceContainerHigh,
+                          foregroundColor: colorScheme.onSurface,
+                          fixedSize: const Size(56.0, 56.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.only(
+                              topRight: Radius.circular(26.0),
+                              bottomRight: Radius.circular(26.0),
+                              topLeft: Radius.circular(8.0),
+                              bottomLeft: Radius.circular(8.0),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.skip_next_rounded, size: 30.0),
                         onPressed: () => controller.next(),
                       ),
                       IconButton(
@@ -2692,6 +2817,60 @@ class _Material3PlayerState extends ConsumerState<_Material3Player> {
                       ),
                     ],
                   ),
+                  if (!isDesktop) ...[
+                    const SizedBox(height: 24.0),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.queue_music_outlined, color: colorScheme.onSurfaceVariant, size: 24.0),
+                          tooltip: 'Queue',
+                          onPressed: () {
+                            ref.read(immersiveModeProvider.notifier).state = false;
+                            context.push('/queue');
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.chat_bubble_outline, color: colorScheme.onSurfaceVariant, size: 24.0),
+                          tooltip: 'Lyrics',
+                          onPressed: () {
+                            ref.read(immersiveModeProvider.notifier).state = false;
+                            context.push('/lyrics');
+                          },
+                        ),
+                        Consumer(
+                          builder: (context, ref, child) {
+                            final timerState = ref.watch(sleepTimerNotifierProvider);
+                            return AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: timerState.isActive
+                                  ? GestureDetector(
+                                      key: const ValueKey('m3_active_timer'),
+                                      onTap: () => showSleepTimerDialog(context, ref),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.surfaceContainerHigh,
+                                          borderRadius: BorderRadius.circular(12.0),
+                                        ),
+                                        child: Text(
+                                          timerState.formattedRemaining,
+                                          style: TextStyle(color: colorScheme.onSurface, fontSize: 12.0, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    )
+                                  : IconButton(
+                                      key: const ValueKey('m3_inactive_timer'),
+                                      icon: Icon(Icons.dark_mode_outlined, color: colorScheme.onSurfaceVariant, size: 24.0),
+                                      tooltip: 'Sleep timer',
+                                      onPressed: () => showSleepTimerDialog(context, ref),
+                                    ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             );

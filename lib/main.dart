@@ -22,6 +22,9 @@ import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'core/services/device_memory_manager.dart';
 import 'core/services/startup_tracker.dart';
 import 'core/services/logger_service.dart';
+import 'package:dynamic_color/dynamic_color.dart';
+import 'shared/providers/theme_providers.dart';
+import 'app/theme/theme.dart';
 
 class DnsCacheEntry {
   final List<InternetAddress> ipv6;
@@ -395,19 +398,36 @@ class DAMusicApp extends ConsumerWidget {
       }
     });
 
-    return MaterialApp.router(
-      title: 'DA Tunes',
-      debugShowCheckedModeBanner: false,
-      theme: themeData,
-      darkTheme: themeData,
-      themeMode: ThemeMode.dark,
-      routerConfig: goRouter,
-      builder: (context, child) {
-        return AnimatedTheme(
-          data: themeData,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOut,
-          child: child ?? const SizedBox.shrink(),
+    return DynamicColorBuilder(
+      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+        ThemeData effectiveTheme = themeData;
+        final mode = ref.watch(appThemeModeProvider);
+        if (mode == AppThemeMode.material3) {
+          final m3Mode = ref.watch(m3ThemeModeProvider);
+          final isLight = m3Mode == M3ThemeMode.light;
+          final systemScheme = isLight ? lightDynamic : darkDynamic;
+          if (systemScheme != null) {
+            effectiveTheme = DATheme.m3Theme(
+              brightness: isLight ? Brightness.light : Brightness.dark,
+              seedColor: systemScheme.primary,
+            );
+          }
+        }
+        return MaterialApp.router(
+          title: 'DA Tunes',
+          debugShowCheckedModeBanner: false,
+          theme: effectiveTheme,
+          darkTheme: effectiveTheme,
+          themeMode: ThemeMode.dark,
+          routerConfig: goRouter,
+          builder: (context, child) {
+            return AnimatedTheme(
+              data: effectiveTheme,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOut,
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
         );
       },
     );

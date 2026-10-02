@@ -367,17 +367,15 @@ class DATheme {
     );
   }
 
-  static ThemeData m3Theme({required Brightness brightness}) {
+  static ThemeData m3Theme({
+    required Brightness brightness,
+    Color seedColor = const Color(0xFF6750A4),
+  }) {
     final bool isDark = brightness == Brightness.dark;
-    final colorScheme = isDark
-        ? ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6750A4),
-            brightness: Brightness.dark,
-          )
-        : ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6750A4),
-            brightness: Brightness.light,
-          );
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: brightness,
+    );
 
     final m3Ext = DAThemeExtension(
       background: colorScheme.surface,

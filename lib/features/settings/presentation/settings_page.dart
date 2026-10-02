@@ -108,9 +108,11 @@ class SettingsPage extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(
-          horizontal: DATokens.spacingLarge,
-          vertical: DATokens.spacingMedium,
+        padding: EdgeInsets.only(
+          left: DATokens.spacingLarge,
+          right: DATokens.spacingLarge,
+          top: DATokens.spacingMedium,
+          bottom: Theme.of(context).platform == TargetPlatform.android ? 160.0 : DATokens.spacingMedium,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,17 +231,19 @@ class SettingsPage extends ConsumerWidget {
                       },
                     ),
                   ],
-                  const Divider(height: 1),
-                  _buildSwitchTile(
-                    context: context,
-                    icon: Icons.image_outlined,
-                    title: 'Show Album Art as Background',
-                    subtitle: 'Use blurred current playing album artwork as app background',
-                    value: showAlbumArt,
-                    onChanged: (val) {
-                      ref.read(showAlbumArtBackgroundProvider.notifier).toggle(val);
-                    },
-                  ),
+                  if (ref.watch(appThemeModeProvider) != AppThemeMode.material3) ...[
+                    const Divider(height: 1),
+                    _buildSwitchTile(
+                      context: context,
+                      icon: Icons.image_outlined,
+                      title: 'Show Album Art as Background',
+                      subtitle: 'Use blurred current playing album artwork as app background',
+                      value: showAlbumArt,
+                      onChanged: (val) {
+                        ref.read(showAlbumArtBackgroundProvider.notifier).toggle(val);
+                      },
+                    ),
+                  ],
                   if (ref.watch(appThemeModeProvider) == AppThemeMode.defaultDA) ...[
                     const Divider(height: 1),
                     _buildDropdownTile<PlayerStyle>(
@@ -247,7 +251,7 @@ class SettingsPage extends ConsumerWidget {
                       icon: Icons.play_circle_outline,
                       title: 'Player Style',
                       subtitle: 'Select the visual theme for full screen playback',
-                      value: ref.watch(playerStyleProvider),
+                      value: ref.watch(playerStyleNotifierProvider),
                       items: const [
                         DropdownMenuItem(
                           value: PlayerStyle.immersive,
@@ -264,7 +268,7 @@ class SettingsPage extends ConsumerWidget {
                       ],
                       onChanged: (val) {
                         if (val != null) {
-                          ref.read(playerStyleProvider.notifier).setStyle(val);
+                          ref.read(playerStyleNotifierProvider.notifier).setStyle(val);
                         }
                       },
                     ),
@@ -692,10 +696,23 @@ class SettingsPage extends ConsumerWidget {
   }) {
     final colors = context.daColors;
     final typography = context.daTypography;
+    final isCompact = MediaQuery.of(context).size.width < 420;
     return ListTile(
-      leading: Icon(icon, color: colors.primary),
-      title: Text(title, style: typography.title.copyWith(fontSize: 15.0)),
-      subtitle: Text(subtitle, style: typography.body.copyWith(fontSize: 12.0, color: colors.textSecondary)),
+      dense: isCompact,
+      contentPadding: EdgeInsets.symmetric(horizontal: isCompact ? 12.0 : 16.0, vertical: 2.0),
+      leading: Icon(icon, color: colors.primary, size: isCompact ? 20.0 : 24.0),
+      title: Text(
+        title,
+        style: typography.title.copyWith(fontSize: isCompact ? 14.0 : 15.0),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        subtitle,
+        style: typography.body.copyWith(fontSize: isCompact ? 11.0 : 12.0, color: colors.textSecondary),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
       trailing: Switch.adaptive(
         value: value,
         activeThumbColor: colors.primary,
@@ -715,17 +732,34 @@ class SettingsPage extends ConsumerWidget {
   }) {
     final colors = context.daColors;
     final typography = context.daTypography;
+    final isCompact = MediaQuery.of(context).size.width < 420;
     return ListTile(
-      leading: Icon(icon, color: colors.primary),
-      title: Text(title, style: typography.title.copyWith(fontSize: 15.0)),
-      subtitle: Text(subtitle, style: typography.body.copyWith(fontSize: 12.0, color: colors.textSecondary)),
-      trailing: DropdownButton<T>(
-        value: value,
-        items: items,
-        onChanged: onChanged,
-        underline: const SizedBox.shrink(),
-        dropdownColor: colors.surfaceCard,
-        style: typography.body.copyWith(fontSize: 14.0, color: colors.textPrimary),
+      dense: isCompact,
+      contentPadding: EdgeInsets.symmetric(horizontal: isCompact ? 12.0 : 16.0, vertical: 2.0),
+      leading: Icon(icon, color: colors.primary, size: isCompact ? 20.0 : 24.0),
+      title: Text(
+        title,
+        style: typography.title.copyWith(fontSize: isCompact ? 14.0 : 15.0),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        subtitle,
+        style: typography.body.copyWith(fontSize: isCompact ? 11.0 : 12.0, color: colors.textSecondary),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: isCompact ? 120.0 : 160.0),
+        child: DropdownButton<T>(
+          value: value,
+          items: items,
+          onChanged: onChanged,
+          isExpanded: true,
+          underline: const SizedBox.shrink(),
+          dropdownColor: colors.surfaceCard,
+          style: typography.body.copyWith(fontSize: isCompact ? 12.0 : 14.0, color: colors.textPrimary),
+        ),
       ),
     );
   }

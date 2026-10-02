@@ -77,14 +77,16 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape || screenWidth >= 900;
-    final bool showPlayerPanel = isLandscape || screenWidth >= 1200;
+    final bool isM3 = ref.watch(appThemeModeProvider) == AppThemeMode.material3;
+    final bool isAmoled = ref.watch(appThemeModeProvider) == AppThemeMode.amoled;
+    final bool showPlayerPanel = (!isM3 && !isAmoled) && (isLandscape || screenWidth >= 1200);
     final bool showNavRail = isLandscape || screenWidth >= 700;
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
 
     final duration = ref.scaledDuration(isImmersive ? DAMotion.large : const Duration(milliseconds: 380));
     final curve = ref.scaledCurve(DAMotion.fastOutSlowIn);
 
-    final containerBorderRadius = isImmersive
+    final containerBorderRadius = (isImmersive || isM3)
         ? BorderRadius.zero
         : (isAndroid && !isLandscape
             ? const BorderRadius.vertical(
@@ -92,7 +94,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               )
             : BorderRadius.circular(DATokens.radiusXXLarge));
 
-    final containerMargin = isImmersive
+    final containerMargin = (isImmersive || isM3)
         ? EdgeInsets.zero
         : (isAndroid && !isLandscape
             ? const EdgeInsets.only(
@@ -156,7 +158,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                                   child: Stack(
                                     children: [
                                       Positioned.fill(
-                                        child: showAlbumArt
+                                        child: (showAlbumArt && !isM3)
                                             ? ClipRect(
                                                 child: BackdropFilter(
                                                   filter: ImageFilter.blur(
@@ -168,8 +170,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                                                       color: isImmersive ? Colors.transparent : colors.background.withValues(alpha: 0.50),
                                                       borderRadius: containerBorderRadius,
                                                       border: Border.all(
-                                                        color: isImmersive ? Colors.transparent : colors.border.withValues(alpha: 0.4),
-                                                        width: 1.0,
+                                                        color: (isImmersive || isM3) ? Colors.transparent : colors.border.withValues(alpha: 0.4),
+                                                        width: (isImmersive || isM3) ? 0.0 : 1.0,
                                                       ),
                                                     ),
                                                   ),
@@ -180,8 +182,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                                                   color: isImmersive ? Colors.transparent : colors.background,
                                                   borderRadius: containerBorderRadius,
                                                   border: Border.all(
-                                                    color: isImmersive ? Colors.transparent : colors.border.withValues(alpha: 0.4),
-                                                    width: 1.0,
+                                                    color: (isImmersive || isM3) ? Colors.transparent : colors.border.withValues(alpha: 0.4),
+                                                    width: (isImmersive || isM3) ? 0.0 : 1.0,
                                                   ),
                                                 ),
                                               ),
@@ -193,13 +195,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                                             children: [
                                               Padding(
                                                 padding: EdgeInsets.only(
-                                                  bottom: isAndroid && !isImmersive && !isLandscape
-                                                      ? (ref.watch(currentSongProvider) != null ? 144.0 + bottomPadding : 80.0 + bottomPadding)
-                                                      : 0.0,
+                                                  bottom: ((isLandscape || !isAndroid) && !showPlayerPanel && !isImmersive && ref.watch(currentSongProvider) != null ? 80.0 : 0.0),
                                                 ),
                                                 child: widget.child,
                                               ),
-                                              if (!isAndroid && !showPlayerPanel && !isImmersive && !isLandscape)
+                                              if ((isLandscape || !isAndroid) && !showPlayerPanel && !isImmersive)
                                                 const Align(
                                                   alignment: Alignment.bottomCenter,
                                                   child: MiniPlayer(),

@@ -24,12 +24,7 @@ class NavigationPill extends StatelessWidget {
             width: pillWidth,
             height: 54.0,
             decoration: BoxDecoration(
-              color: colors.surface.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(DATokens.radiusLarge),
-              border: Border.all(
-                color: colors.border.withValues(alpha: 0.3),
-                width: 1.0,
-              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.25),
@@ -45,7 +40,16 @@ class NavigationPill extends StatelessWidget {
                   sigmaX: DeviceMemoryManager.instance.getRecommendedBlurSigma(12.0),
                   sigmaY: DeviceMemoryManager.instance.getRecommendedBlurSigma(12.0),
                 ),
-                child: Stack(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colors.surface.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(DATokens.radiusLarge),
+                    border: Border.all(
+                      color: colors.border.withValues(alpha: 0.3),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Stack(
                   children: [
                     AnimatedPositioned(
                       duration: const Duration(milliseconds: 300),
@@ -100,8 +104,9 @@ class NavigationPill extends StatelessWidget {
               ),
             ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
   }
 }

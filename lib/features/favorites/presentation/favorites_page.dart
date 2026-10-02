@@ -39,9 +39,11 @@ class FavoritesPage extends ConsumerWidget {
             )
           : ListView.builder(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(
-                horizontal: DATokens.spacingMedium,
-                vertical: DATokens.spacingSmall,
+              padding: EdgeInsets.only(
+                left: DATokens.spacingMedium,
+                right: DATokens.spacingMedium,
+                top: DATokens.spacingSmall,
+                bottom: Theme.of(context).platform == TargetPlatform.android ? 160.0 : DATokens.spacingSmall,
               ),
               itemCount: favorites.length,
               itemBuilder: (context, index) {
