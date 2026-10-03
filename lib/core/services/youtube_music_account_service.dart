@@ -202,7 +202,7 @@ class YouTubeMusicAccountService {
               String title = 'Unknown Title';
               String artist = 'Unknown Artist';
               String album = 'Single';
-              Duration duration = const Duration(minutes: 3);
+              Duration duration = Duration.zero;
 
               if (flexColumns != null && flexColumns.isNotEmpty) {
                 final titleNode = flexColumns[0]['musicResponsiveListItemFlexColumnRenderer']['text']['runs'];
@@ -227,13 +227,7 @@ class YouTubeMusicAccountService {
                 thumbnail = thumbnails.last['url'] as String? ?? '';
               }
 
-              if (flexColumns != null && flexColumns.length > 2) {
-                final runs = flexColumns[2]['musicResponsiveListItemFlexColumnRenderer']['text']['runs'] as List?;
-                if (runs != null && runs.isNotEmpty) {
-                  final durStr = runs[0]['text'] as String? ?? '';
-                  duration = _parseDurationString(durStr);
-                }
-              }
+              duration = _extractDurationFromFlexColumns(flexColumns);
 
               songs.add(Song(
                 id: videoId,
@@ -261,6 +255,7 @@ class YouTubeMusicAccountService {
               if (subtitleRuns != null && subtitleRuns.isNotEmpty) {
                 artist = subtitleRuns[0]['text'] as String? ?? 'Unknown Artist';
               }
+              final duration = _extractDurationFromRuns(subtitleRuns);
 
               String thumbnail = '';
               final thumbnails = renderer['thumbnailRenderer']?['musicThumbnailRenderer']?['thumbnail']?['thumbnails'] as List?;
@@ -273,7 +268,7 @@ class YouTubeMusicAccountService {
                 title: title,
                 artist: artist,
                 album: 'Single',
-                duration: const Duration(minutes: 3),
+                duration: duration,
                 artworkUrl: thumbnail,
                 source: 'youtube_music',
                 lyrics: null,
@@ -494,7 +489,7 @@ class YouTubeMusicAccountService {
   }
 
   Duration _parseDurationString(String durationStr) {
-    if (durationStr.isEmpty) return const Duration(minutes: 3);
+    if (durationStr.isEmpty) return Duration.zero;
     final parts = durationStr.split(':');
     try {
       if (parts.length == 3) {
@@ -510,7 +505,34 @@ class YouTubeMusicAccountService {
         );
       }
     } catch (_) {}
-    return const Duration(minutes: 3);
+    return Duration.zero;
+  }
+
+  Duration _extractDurationFromRuns(List? runs) {
+    if (runs == null) return Duration.zero;
+    final timeRegex = RegExp(r'^\d{1,2}:\d{2}(:\d{2})?$');
+    for (final run in runs) {
+      if (run is Map) {
+        final text = (run['text'] as String? ?? '').trim();
+        if (timeRegex.hasMatch(text)) {
+          return _parseDurationString(text);
+        }
+      }
+    }
+    return Duration.zero;
+  }
+
+  Duration _extractDurationFromFlexColumns(List? flexColumns) {
+    if (flexColumns == null) return Duration.zero;
+    for (final col in flexColumns) {
+      if (col is Map) {
+        final renderer = col['musicResponsiveListItemFlexColumnRenderer'];
+        final runs = renderer?['text']?['runs'] as List?;
+        final dur = _extractDurationFromRuns(runs);
+        if (dur > Duration.zero) return dur;
+      }
+    }
+    return Duration.zero;
   }
 
   Future<Map<String, List<dynamic>>> fetchPersonalizedHomeSections() async {
@@ -581,7 +603,7 @@ class YouTubeMusicAccountService {
               title: titleText,
               artist: artist,
               album: 'Single',
-              duration: const Duration(minutes: 3),
+              duration: Duration.zero,
               artworkUrl: thumbnail,
               source: 'youtube_music',
               lyrics: null,

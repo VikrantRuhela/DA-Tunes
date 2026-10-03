@@ -2676,6 +2676,7 @@ class _Material3PlayerState extends ConsumerState<Material3Player> {
                             child: CircularProgressIndicator(
                               value: activeProgress,
                               strokeWidth: 8.0,
+                              strokeCap: StrokeCap.round,
                               backgroundColor: colorScheme.surfaceContainerHighest,
                               color: colorScheme.primary,
                             ),
@@ -2705,25 +2706,34 @@ class _Material3PlayerState extends ConsumerState<Material3Player> {
                     ),
                   ),
                   const SizedBox(height: 28.0),
-                  Text(
-                    currentSong?.title ?? 'No Song Selected',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onSurface,
+                  SwipeableArtwork(
+                    onSwipeLeft: () => controller.next(),
+                    onSwipeRight: () => controller.previous(),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          currentSong?.title ?? 'No Song Selected',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6.0),
+                        Text(
+                          currentSong?.artist ?? 'Unknown Artist',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6.0),
-                  Text(
-                    currentSong?.artist ?? 'Unknown Artist',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 20.0),
                   Padding(

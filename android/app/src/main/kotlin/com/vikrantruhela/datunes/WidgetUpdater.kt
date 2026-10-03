@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -28,7 +29,6 @@ object WidgetUpdater {
     private var lastArtworkUri: String? = null
     private var downloadingUri: String? = null
 
-    // Cache state variables for filtering out redundant updates
     private var lastTitle: String? = null
     private var lastArtist: String? = null
     private var lastAlbum: String? = null
@@ -45,7 +45,6 @@ object WidgetUpdater {
         shuffleMode: Int,
         repeatMode: Int
     ) {
-        Log.d("WidgetUpdater", "updateWidget entry point. metadata is null? = ${metadata == null}, state is null? = ${state == null}")
         val title = metadata?.getString(MediaMetadataCompat.METADATA_KEY_TITLE) ?: lastTitle ?: "Not Playing"
         val artist = metadata?.getString(MediaMetadataCompat.METADATA_KEY_ARTIST) ?: lastArtist ?: "DA Tunes"
         val album = metadata?.getString(MediaMetadataCompat.METADATA_KEY_ALBUM) ?: lastAlbum ?: ""
@@ -63,19 +62,14 @@ object WidgetUpdater {
         val duration = metadata?.getLong(MediaMetadataCompat.METADATA_KEY_DURATION) ?: lastDuration
         var position = state?.position ?: lastPosition
         
-        // Strict monotonic filter: position can never jump backward during active playback,
-        // unless a song change or explicit seek occurs (change > 3000ms).
         if (isPlaying && position < lastPosition && Math.abs(position - lastPosition) < 3000L) {
             position = lastPosition
         }
         
-        // Defensive check: prevent position from temporarily dropping to 0 during active play
         if (isPlaying && position == 0L && lastPosition > 3000L) {
             position = lastPosition
         }
 
-        // Check if anything meaningful changed.
-        // We only allow progress bar position updates if the position changes by >= 900ms (to align with the 1s Dart timer)
         val titleChanged = title != lastTitle
         val artistChanged = artist != lastArtist
         val albumChanged = album != lastAlbum
@@ -85,19 +79,14 @@ object WidgetUpdater {
         val shuffleChanged = shuffleMode != lastShuffleMode
         val repeatChanged = repeatMode != lastRepeatMode
 
-        Log.d("WidgetUpdater", "Change status: titleChanged=$titleChanged, artistChanged=$artistChanged, albumChanged=$albumChanged, isPlayingChanged=$isPlayingChanged, positionChanged=$positionChanged (pos=$position, lastPos=$lastPosition, diff=${Math.abs(position - lastPosition)}), durationChanged=$durationChanged, shuffleChanged=$shuffleChanged, repeatChanged=$repeatChanged")
-
         if (!titleChanged && !artistChanged && !albumChanged && !isPlayingChanged && 
             !positionChanged && !durationChanged && !shuffleChanged && !repeatChanged) {
-            Log.d("WidgetUpdater", "Skipping widget update to prevent layout flickering (redundant state).")
             return
         }
 
-        // Determine if this is a partial update (only position changed)
         val isPartial = !titleChanged && !artistChanged && !albumChanged && !isPlayingChanged && 
                         !durationChanged && !shuffleChanged && !repeatChanged && positionChanged
 
-        // Save new state values
         lastTitle = title
         lastArtist = artist
         lastAlbum = album
@@ -107,24 +96,19 @@ object WidgetUpdater {
         lastShuffleMode = shuffleMode
         lastRepeatMode = repeatMode
 
-        // Also check if Bitmaps are directly provided in metadata
         val displayIconBitmap = metadata?.getBitmap(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON)
         val artBitmap = metadata?.getBitmap(MediaMetadataCompat.METADATA_KEY_ART)
         val albumArtBitmap = metadata?.getBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART)
 
-        // Save metadata to SharedPreferences for resizing/initial launch recovery
         saveToSharedPreferences(context, title, artist, album, artUriStr, isPlaying, shuffleMode, repeatMode, songId, duration, position)
 
         if (isPartial) {
-            // Fast-path partial update for smooth progress tracking
             renderWidgets(context, title, artist, album, isPlaying, shuffleMode, repeatMode, songId, duration, position, isPartial = true)
         } else {
-            // Full-path update
             if (displayIconBitmap != null || artBitmap != null || albumArtBitmap != null) {
                 val sourceBitmap = displayIconBitmap ?: artBitmap ?: albumArtBitmap
                 thread {
                     processAndCacheBitmaps(sourceBitmap!!, "direct_metadata")
-                    // Render widgets on the main loop once processing is complete
                     android.os.Handler(context.mainLooper).post {
                         renderWidgets(context, title, artist, album, isPlaying, shuffleMode, repeatMode, songId, duration, position, isPartial = false)
                     }
@@ -156,7 +140,6 @@ object WidgetUpdater {
             val sharpThumbnail = getRoundedCornerBitmap(scaledBitmap, 24)
             val topRoundedArt = getTopRoundedCornerBitmap(scaledBitmap, 36)
             
-            // Create a small 150x150 version for the blurred background
             val blurInput = Bitmap.createScaledBitmap(scaledBitmap, 150, 150, false)
             val blurredBackground = processBlurredBackground(blurInput)
 
@@ -213,7 +196,6 @@ object WidgetUpdater {
                 }
             }
 
-            // Redraw widgets on the main loop once loading finishes
             android.os.Handler(context.mainLooper).post {
                 updateFromCache(context)
             }
@@ -224,6 +206,24 @@ object WidgetUpdater {
         val blurred = blur(raw, 10)
         val darkened = darkenBitmap(blurred, 0.40f)
         return getRoundedCornerBitmap(darkened, 24)
+    }
+
+    private fun isDarkMode(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("da_tunes_widget_prefs", Context.MODE_PRIVATE)
+        if (prefs.contains("isDarkMode")) {
+            return prefs.getBoolean("isDarkMode", true)
+        }
+        val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val m3Mode = flutterPrefs.getString("flutter.m3_theme_mode", null)
+        if (m3Mode != null) {
+            return m3Mode != "light"
+        }
+        val currentTheme = flutterPrefs.getString("flutter.app_theme_mode", null)
+        if (currentTheme == "amoled" || currentTheme == "defaultDA") {
+            return true
+        }
+        val nightModeFlags = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        return nightModeFlags == Configuration.UI_MODE_NIGHT_YES
     }
 
     private fun renderWidgets(
@@ -240,53 +240,80 @@ object WidgetUpdater {
         isPartial: Boolean
     ) {
         val appWidgetManager = AppWidgetManager.getInstance(context)
-        val thisWidget = ComponentName(context, DAWidgetProvider::class.java)
-        val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
 
-        for (widgetId in allWidgetIds) {
-            val options = appWidgetManager.getAppWidgetOptions(widgetId)
-            val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-            val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+        val providers = arrayOf(
+            Pair(DAWidget2x2Provider::class.java, R.layout.widget_2x2),
+            Pair(DAWidget4x2Provider::class.java, R.layout.widget_4x2),
+            Pair(DAWidget2x1Provider::class.java, R.layout.widget_2x1),
+            Pair(DAM3Widget4x2Provider::class.java, R.layout.widget_m3_4x2),
+            Pair(DAM3Widget2x2Provider::class.java, R.layout.widget_m3_2x2)
+        )
 
-            val isSmall2x2 = minWidth < 200 && minHeight < 160
-            val isLarge4x4 = minWidth >= 200 && minHeight >= 160
+        val progressValue = if (duration > 0) ((position * 10000) / duration).toInt() else 0
+        val progressFloat = if (duration > 0) (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f
+        val isDark = isDarkMode(context)
 
-            val layoutResId = if (isSmall2x2) {
-                R.layout.widget_small
-            } else if (isLarge4x4) {
-                R.layout.widget_large
-            } else {
-                R.layout.widget_medium
-            }
+        for ((providerClass, explicitLayoutId) in providers) {
+            val component = ComponentName(context, providerClass)
+            val widgetIds = appWidgetManager.getAppWidgetIds(component)
 
-            if (isPartial) {
-                if (layoutResId != R.layout.widget_small) {
-                    val partialViews = RemoteViews(context.packageName, layoutResId)
-                    if (duration > 0) {
-                        val progressValue = ((position * 10000) / duration).toInt()
+            for (widgetId in widgetIds) {
+                val layoutResId = if (explicitLayoutId != -1) {
+                    explicitLayoutId
+                } else {
+                    val options = appWidgetManager.getAppWidgetOptions(widgetId)
+                    val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+                    val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+                    if (minWidth < 200 && minHeight < 160) R.layout.widget_2x2
+                    else if (minWidth >= 200 && minHeight >= 160) R.layout.widget_large
+                    else R.layout.widget_4x2
+                }
+
+                if (isPartial) {
+                    if (layoutResId == R.layout.widget_4x2 || layoutResId == R.layout.widget_large) {
+                        val partialViews = RemoteViews(context.packageName, layoutResId)
                         partialViews.setProgressBar(R.id.widget_progress, 10000, progressValue, false)
-                    } else {
-                        partialViews.setProgressBar(R.id.widget_progress, 10000, 0, false)
+                        try {
+                            appWidgetManager.partiallyUpdateAppWidget(widgetId, partialViews)
+                        } catch (e: Exception) {
+                            Log.e("WidgetUpdater", "Error in partial update: ${e.message}")
+                        }
+                    } else if (layoutResId == R.layout.widget_m3_4x2 || layoutResId == R.layout.widget_m3_2x2) {
+                        val m3Art = createM3CircularProgressArtwork(cachedArtwork, progressFloat, isDark, if (layoutResId == R.layout.widget_m3_4x2) 220 else 240)
+                        if (m3Art != null) {
+                            val partialViews = RemoteViews(context.packageName, layoutResId)
+                            partialViews.setImageViewBitmap(R.id.widget_m3_circular_art, m3Art)
+                            try {
+                                appWidgetManager.partiallyUpdateAppWidget(widgetId, partialViews)
+                            } catch (e: Exception) {
+                                Log.e("WidgetUpdater", "Error in M3 partial update: ${e.message}")
+                            }
+                        }
+                    }
+                } else {
+                    val views = RemoteViews(context.packageName, layoutResId)
+                    when (layoutResId) {
+                        R.layout.widget_m3_4x2, R.layout.widget_m3_2x2 -> {
+                            setupM3Widget(context, views, title, artist, isPlaying, progressFloat, isDark, layoutResId)
+                        }
+                        R.layout.widget_4x2 -> {
+                            setupMediumWidget(context, views, title, artist, isPlaying, duration, position)
+                        }
+                        R.layout.widget_2x1 -> {
+                            setup2x1Widget(context, views, title, artist, isPlaying)
+                        }
+                        R.layout.widget_large -> {
+                            setupLargeWidget(context, views, title, artist, album, isPlaying, shuffleMode, repeatMode, songId, duration, position)
+                        }
+                        else -> {
+                            setupSmallWidget(context, views, title, artist, isPlaying)
+                        }
                     }
                     try {
-                        appWidgetManager.partiallyUpdateAppWidget(widgetId, partialViews)
+                        appWidgetManager.updateAppWidget(widgetId, views)
                     } catch (e: Exception) {
-                        Log.e("WidgetUpdater", "Error in partiallyUpdateAppWidget: ${e.message}", e)
+                        Log.e("WidgetUpdater", "Error updating widget $widgetId: ${e.message}")
                     }
-                }
-            } else {
-                val views = RemoteViews(context.packageName, layoutResId)
-                if (layoutResId == R.layout.widget_large) {
-                    setupLargeWidget(context, views, title, artist, album, isPlaying, shuffleMode, repeatMode, songId, duration, position)
-                } else if (layoutResId == R.layout.widget_medium) {
-                    setupMediumWidget(context, views, title, artist, isPlaying, duration, position)
-                } else {
-                    setupSmallWidget(context, views, title, artist, isPlaying)
-                }
-                try {
-                    appWidgetManager.updateAppWidget(widgetId, views)
-                } catch (e: Exception) {
-                    Log.e("WidgetUpdater", "Error updating widget ID $widgetId: ${e.message}", e)
                 }
             }
         }
@@ -301,6 +328,84 @@ object WidgetUpdater {
         }
         val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
         return android.app.PendingIntent.getActivity(context, 100, intent, flags)
+    }
+
+    private fun setupM3Widget(
+        context: Context,
+        views: RemoteViews,
+        title: String,
+        artist: String,
+        isPlaying: Boolean,
+        progressFloat: Float,
+        isDark: Boolean,
+        layoutResId: Int
+    ) {
+        views.setTextViewText(R.id.txt_title, title)
+        views.setTextViewText(R.id.txt_artist, artist)
+
+        val textColor = if (isDark) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#1C1B1F")
+        val subTextColor = if (isDark) android.graphics.Color.parseColor("#B3FFFFFF") else android.graphics.Color.parseColor("#79747E")
+        val panelBg = if (isDark) R.drawable.m3_panel_background_dark else R.drawable.m3_panel_background_light
+
+        views.setTextColor(R.id.txt_title, textColor)
+        views.setTextColor(R.id.txt_artist, subTextColor)
+        views.setInt(R.id.widget_m3_panel, "setBackgroundResource", panelBg)
+
+        val playPauseRes = if (isPlaying) R.drawable.audio_service_pause else R.drawable.audio_service_play
+        views.setImageViewResource(R.id.btn_previous, R.drawable.audio_service_skip_previous)
+        views.setImageViewResource(R.id.btn_next, R.drawable.audio_service_skip_next)
+        views.setImageViewResource(R.id.btn_play_pause, playPauseRes)
+
+        val openAppPendingIntent = getOpenAppPendingIntent(context, isPlaying)
+        views.setOnClickPendingIntent(android.R.id.background, openAppPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_background_image, openAppPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_m3_panel, openAppPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_m3_circular_art, openAppPendingIntent)
+        views.setOnClickPendingIntent(R.id.txt_title, openAppPendingIntent)
+        views.setOnClickPendingIntent(R.id.txt_artist, openAppPendingIntent)
+
+        views.setOnClickPendingIntent(R.id.btn_previous, getPendingIntent(context, BaseWidgetProvider.ACTION_PREVIOUS))
+        views.setOnClickPendingIntent(R.id.btn_play_pause, getPendingIntent(context, BaseWidgetProvider.ACTION_PLAY_PAUSE))
+        views.setOnClickPendingIntent(R.id.btn_next, getPendingIntent(context, BaseWidgetProvider.ACTION_NEXT))
+
+        val m3Art = createM3CircularProgressArtwork(cachedArtwork, progressFloat, isDark, if (layoutResId == R.layout.widget_m3_4x2) 220 else 240)
+        if (m3Art != null) {
+            views.setImageViewBitmap(R.id.widget_m3_circular_art, m3Art)
+        } else {
+            views.setImageViewResource(R.id.widget_m3_circular_art, R.drawable.da_placeholder)
+        }
+
+        cachedBlurredBackground?.let {
+            views.setImageViewBitmap(R.id.widget_background_image, it)
+        } ?: run {
+            views.setImageViewResource(R.id.widget_background_image, R.drawable.widget_background)
+        }
+    }
+
+    private fun setup2x1Widget(context: Context, views: RemoteViews, title: String, artist: String, isPlaying: Boolean) {
+        views.setTextViewText(R.id.txt_title, title)
+        views.setTextViewText(R.id.txt_artist, artist)
+
+        val playPauseRes = if (isPlaying) R.drawable.audio_service_pause else R.drawable.audio_service_play
+        views.setImageViewResource(R.id.btn_previous, R.drawable.audio_service_skip_previous)
+        views.setImageViewResource(R.id.btn_next, R.drawable.audio_service_skip_next)
+        views.setImageViewResource(R.id.btn_play_pause, playPauseRes)
+
+        val openAppPendingIntent = getOpenAppPendingIntent(context, isPlaying)
+        views.setOnClickPendingIntent(android.R.id.background, openAppPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_background_image, openAppPendingIntent)
+        views.setOnClickPendingIntent(R.id.txt_title, openAppPendingIntent)
+        views.setOnClickPendingIntent(R.id.txt_artist, openAppPendingIntent)
+
+        views.setOnClickPendingIntent(R.id.btn_previous, getPendingIntent(context, BaseWidgetProvider.ACTION_PREVIOUS))
+        views.setOnClickPendingIntent(R.id.btn_play_pause, getPendingIntent(context, BaseWidgetProvider.ACTION_PLAY_PAUSE))
+        views.setOnClickPendingIntent(R.id.btn_next, getPendingIntent(context, BaseWidgetProvider.ACTION_NEXT))
+
+        cachedBlurredBackground?.let {
+            views.setImageViewBitmap(R.id.widget_background_image, it)
+        } ?: run {
+            views.setImageViewResource(R.id.widget_background_image, R.drawable.widget_background)
+        }
     }
 
     private fun setupSmallWidget(context: Context, views: RemoteViews, title: String, artist: String, isPlaying: Boolean) {
@@ -318,9 +423,9 @@ object WidgetUpdater {
         views.setOnClickPendingIntent(R.id.txt_title, openAppPendingIntent)
         views.setOnClickPendingIntent(R.id.txt_artist, openAppPendingIntent)
 
-        views.setOnClickPendingIntent(R.id.btn_previous, getPendingIntent(context, DAWidgetProvider.ACTION_PREVIOUS))
-        views.setOnClickPendingIntent(R.id.btn_play_pause, getPendingIntent(context, DAWidgetProvider.ACTION_PLAY_PAUSE))
-        views.setOnClickPendingIntent(R.id.btn_next, getPendingIntent(context, DAWidgetProvider.ACTION_NEXT))
+        views.setOnClickPendingIntent(R.id.btn_previous, getPendingIntent(context, BaseWidgetProvider.ACTION_PREVIOUS))
+        views.setOnClickPendingIntent(R.id.btn_play_pause, getPendingIntent(context, BaseWidgetProvider.ACTION_PLAY_PAUSE))
+        views.setOnClickPendingIntent(R.id.btn_next, getPendingIntent(context, BaseWidgetProvider.ACTION_NEXT))
 
         cachedBlurredBackground?.let {
             views.setImageViewBitmap(R.id.widget_background_image, it)
@@ -360,9 +465,9 @@ object WidgetUpdater {
         views.setOnClickPendingIntent(R.id.txt_title, openAppPendingIntent)
         views.setOnClickPendingIntent(R.id.txt_artist, openAppPendingIntent)
 
-        views.setOnClickPendingIntent(R.id.btn_previous, getPendingIntent(context, DAWidgetProvider.ACTION_PREVIOUS))
-        views.setOnClickPendingIntent(R.id.btn_play_pause, getPendingIntent(context, DAWidgetProvider.ACTION_PLAY_PAUSE))
-        views.setOnClickPendingIntent(R.id.btn_next, getPendingIntent(context, DAWidgetProvider.ACTION_NEXT))
+        views.setOnClickPendingIntent(R.id.btn_previous, getPendingIntent(context, BaseWidgetProvider.ACTION_PREVIOUS))
+        views.setOnClickPendingIntent(R.id.btn_play_pause, getPendingIntent(context, BaseWidgetProvider.ACTION_PLAY_PAUSE))
+        views.setOnClickPendingIntent(R.id.btn_next, getPendingIntent(context, BaseWidgetProvider.ACTION_NEXT))
 
         cachedArtwork?.let {
             views.setImageViewBitmap(R.id.widget_artwork, it)
@@ -414,9 +519,9 @@ object WidgetUpdater {
         views.setOnClickPendingIntent(R.id.txt_artist, openAppPendingIntent)
         views.setOnClickPendingIntent(R.id.txt_album, openAppPendingIntent)
 
-        views.setOnClickPendingIntent(R.id.btn_previous, getPendingIntent(context, DAWidgetProvider.ACTION_PREVIOUS))
-        views.setOnClickPendingIntent(R.id.btn_play_pause, getPendingIntent(context, DAWidgetProvider.ACTION_PLAY_PAUSE))
-        views.setOnClickPendingIntent(R.id.btn_next, getPendingIntent(context, DAWidgetProvider.ACTION_NEXT))
+        views.setOnClickPendingIntent(R.id.btn_previous, getPendingIntent(context, BaseWidgetProvider.ACTION_PREVIOUS))
+        views.setOnClickPendingIntent(R.id.btn_play_pause, getPendingIntent(context, BaseWidgetProvider.ACTION_PLAY_PAUSE))
+        views.setOnClickPendingIntent(R.id.btn_next, getPendingIntent(context, BaseWidgetProvider.ACTION_NEXT))
 
         cachedBlurredBackground?.let {
             views.setImageViewBitmap(R.id.widget_background_image, it)
@@ -431,17 +536,81 @@ object WidgetUpdater {
         }
     }
 
+    private fun createM3CircularProgressArtwork(
+        sourceBitmap: Bitmap?,
+        progress: Float,
+        isDark: Boolean,
+        sizePx: Int = 240
+    ): Bitmap? {
+        try {
+            val output = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(output)
+            val center = sizePx / 2f
+            val strokeWidth = sizePx * 0.07f
+            val padding = strokeWidth / 2f + 2f
+            val rectF = RectF(padding, padding, sizePx - padding, sizePx - padding)
+
+            val trackPaint = Paint().apply {
+                isAntiAlias = true
+                style = Paint.Style.STROKE
+                this.strokeWidth = strokeWidth
+                strokeCap = Paint.Cap.ROUND
+                color = if (isDark) android.graphics.Color.parseColor("#35FFFFFF") else android.graphics.Color.parseColor("#35000000")
+            }
+            canvas.drawOval(rectF, trackPaint)
+
+            val sweepAngle = (progress * 360f).coerceIn(0f, 360f)
+            if (sweepAngle > 0.5f) {
+                val activePaint = Paint().apply {
+                    isAntiAlias = true
+                    style = Paint.Style.STROKE
+                    this.strokeWidth = strokeWidth
+                    strokeCap = Paint.Cap.ROUND
+                    color = if (isDark) android.graphics.Color.parseColor("#D0BCFF") else android.graphics.Color.parseColor("#6750A4")
+                }
+                canvas.drawArc(rectF, -90f, sweepAngle, false, activePaint)
+            }
+
+            val artSize = (sizePx - (strokeWidth * 2.5f)).toInt()
+            if (artSize > 10) {
+                val artBitmap = if (sourceBitmap != null) {
+                    Bitmap.createScaledBitmap(sourceBitmap, artSize, artSize, true)
+                } else {
+                    val placeholder = BitmapFactory.decodeResource(DAApplication.instance?.resources, R.drawable.da_placeholder)
+                    Bitmap.createScaledBitmap(placeholder, artSize, artSize, true)
+                }
+
+                val artOutput = Bitmap.createBitmap(artSize, artSize, Bitmap.Config.ARGB_8888)
+                val artCanvas = Canvas(artOutput)
+                val artPaint = Paint().apply { isAntiAlias = true }
+                val artRect = RectF(0f, 0f, artSize.toFloat(), artSize.toFloat())
+                val artRadius = artSize / 2f
+
+                artCanvas.drawRoundRect(artRect, artRadius, artRadius, artPaint)
+                artPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+                artCanvas.drawBitmap(artBitmap, 0f, 0f, artPaint)
+
+                val artOffset = (sizePx - artSize) / 2f
+                canvas.drawBitmap(artOutput, artOffset, artOffset, null)
+            }
+            return output
+        } catch (e: Exception) {
+            Log.e("WidgetUpdater", "Error rendering M3 circular artwork: ${e.message}", e)
+            return null
+        }
+    }
+
     private fun getPendingIntent(context: Context, action: String): android.app.PendingIntent {
         val requestCode = when (action) {
-            DAWidgetProvider.ACTION_PLAY_PAUSE -> 1
-            DAWidgetProvider.ACTION_NEXT -> 2
-            DAWidgetProvider.ACTION_PREVIOUS -> 3
-            DAWidgetProvider.ACTION_SHUFFLE -> 4
-            DAWidgetProvider.ACTION_REPEAT -> 5
-            DAWidgetProvider.ACTION_FAVORITE -> 6
+            BaseWidgetProvider.ACTION_PLAY_PAUSE -> 1
+            BaseWidgetProvider.ACTION_NEXT -> 2
+            BaseWidgetProvider.ACTION_PREVIOUS -> 3
+            BaseWidgetProvider.ACTION_SHUFFLE -> 4
+            BaseWidgetProvider.ACTION_REPEAT -> 5
+            BaseWidgetProvider.ACTION_FAVORITE -> 6
             else -> 0
         }
-        val intent = Intent(context, DAWidgetProvider::class.java).apply {
+        val intent = Intent(context, DAWidget2x2Provider::class.java).apply {
             this.action = action
         }
         val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
@@ -544,7 +713,6 @@ object WidgetUpdater {
         return result
     }
 
-    // Fast Stack Blur algorithm in pure Kotlin
     private fun blur(sentBitmap: Bitmap, radius: Int): Bitmap {
         val bitmap = sentBitmap.copy(sentBitmap.config ?: Bitmap.Config.ARGB_8888, true)
         if (radius < 1) return sentBitmap
@@ -784,12 +952,8 @@ object WidgetUpdater {
         val duration = prefs.getLong("duration", 0L)
         val position = prefs.getLong("position", 0L)
 
-        // Ensure browser is connected & retry if needed
         DAApplication.instance?.connectMediaBrowser()
-
-        // Ensure artwork is loaded/triggered
         triggerArtworkLoading(context, artworkUri)
-
         renderWidgets(context, title, artist, album, isPlaying, shuffleMode, repeatMode, songId, duration, position, isPartial = false)
     }
 }

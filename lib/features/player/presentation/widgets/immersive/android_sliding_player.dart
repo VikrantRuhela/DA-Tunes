@@ -572,35 +572,43 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
                                     ],
                                   ),
                                 ),
-                                IconButton(
-                                  icon: Icon(
-                                    isPlaying ? Icons.pause : Icons.play_arrow,
-                                    color: colors.textPrimary,
-                                    size: 28.0,
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          isPlaying ? Icons.pause : Icons.play_arrow,
+                                          color: colors.textPrimary,
+                                          size: 28.0,
+                                        ),
+                                        onPressed: () {
+                                          if (isPlaying) {
+                                            ref.read(playbackControllerProvider).pause();
+                                          } else {
+                                            ref.read(playbackControllerProvider).resume();
+                                          }
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.skip_next,
+                                          color: colors.textPrimary,
+                                          size: 24.0,
+                                        ),
+                                        onPressed: () => ref.read(playbackControllerProvider).next(),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.more_vert,
+                                          color: colors.textSecondary,
+                                          size: 24.0,
+                                        ),
+                                        onPressed: () => showSongOptionsMenu(context, ref, currentSong),
+                                      ),
+                                    ],
                                   ),
-                                  onPressed: () {
-                                    if (isPlaying) {
-                                      ref.read(playbackControllerProvider).pause();
-                                    } else {
-                                      ref.read(playbackControllerProvider).resume();
-                                    }
-                                  },
-                                ),
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.skip_next,
-                                    color: colors.textPrimary,
-                                    size: 24.0,
-                                  ),
-                                  onPressed: () => ref.read(playbackControllerProvider).next(),
-                                ),
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.more_vert,
-                                    color: colors.textSecondary,
-                                    size: 24.0,
-                                  ),
-                                  onPressed: () => showSongOptionsMenu(context, ref, currentSong),
                                 ),
                               ],
                             ),
@@ -884,35 +892,43 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: colors.textPrimary,
-                            size: 28.0,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  isPlaying ? Icons.pause : Icons.play_arrow,
+                                  color: colors.textPrimary,
+                                  size: 28.0,
+                                ),
+                                onPressed: () {
+                                  if (isPlaying) {
+                                    ref.read(playbackControllerProvider).pause();
+                                  } else {
+                                    ref.read(playbackControllerProvider).resume();
+                                  }
+                                },
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.skip_next,
+                                  color: colors.textPrimary,
+                                  size: 24.0,
+                                ),
+                                onPressed: () => ref.read(playbackControllerProvider).next(),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  color: colors.textSecondary,
+                                  size: 24.0,
+                                ),
+                                onPressed: () => showSongOptionsMenu(context, ref, currentSong),
+                              ),
+                            ],
                           ),
-                          onPressed: () {
-                            if (isPlaying) {
-                              ref.read(playbackControllerProvider).pause();
-                            } else {
-                              ref.read(playbackControllerProvider).resume();
-                            }
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.skip_next,
-                            color: colors.textPrimary,
-                            size: 24.0,
-                          ),
-                          onPressed: () => ref.read(playbackControllerProvider).next(),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.more_vert,
-                            color: colors.textSecondary,
-                            size: 24.0,
-                          ),
-                          onPressed: () => showSongOptionsMenu(context, ref, currentSong),
                         ),
                       ],
                     ),

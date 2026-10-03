@@ -482,6 +482,12 @@ class PlaybackController extends ChangeNotifier {
       if (_status == PlaybackStatus.playing) {
         if (!_isSeeking) {
           _currentPosition = _playbackEngine.currentPosition;
+          if (_currentIndex >= 0 && _currentIndex < _queueSongs.length && _queueSongs[_currentIndex].duration == Duration.zero) {
+            final engineDuration = _playbackEngine.duration;
+            if (engineDuration > Duration.zero) {
+              _queueSongs[_currentIndex] = _queueSongs[_currentIndex].copyWith(duration: engineDuration);
+            }
+          }
           _prefetchManager?.onPositionUpdate(currentSong, _currentPosition);
           notifyListeners();
 

@@ -119,68 +119,76 @@ class MiniPlayer extends ConsumerWidget {
                               ],
                             ),
                           ),
-                          IconButton.filledTonal(
-                            style: IconButton.styleFrom(
-                              backgroundColor: colors.surfaceHover,
-                              foregroundColor: colors.textPrimary,
-                              fixedSize: const Size(34.0, 34.0),
-                              padding: EdgeInsets.zero,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.only(
-                                  topLeft: Radius.circular(14.0),
-                                  bottomLeft: Radius.circular(14.0),
-                                  topRight: Radius.circular(4.0),
-                                  bottomRight: Radius.circular(4.0),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton.filledTonal(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: colors.surfaceHover,
+                                    foregroundColor: colors.textPrimary,
+                                    fixedSize: const Size(34.0, 34.0),
+                                    padding: EdgeInsets.zero,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.only(
+                                        topLeft: Radius.circular(14.0),
+                                        bottomLeft: Radius.circular(14.0),
+                                        topRight: Radius.circular(4.0),
+                                        bottomRight: Radius.circular(4.0),
+                                      ),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.skip_previous_rounded, size: 18.0),
+                                  onPressed: () => ref.read(playbackControllerProvider).previous(),
                                 ),
-                              ),
-                            ),
-                            icon: const Icon(Icons.skip_previous_rounded, size: 18.0),
-                            onPressed: () => ref.read(playbackControllerProvider).previous(),
-                          ),
-                          const SizedBox(width: 4.0),
-                          M3PlayPauseButton(
-                            isPlaying: isPlaying,
-                            size: 38.0,
-                            iconSize: 22.0,
-                            backgroundColor: colors.primary,
-                            foregroundColor: colors.primary.contrastingColor,
-                            onPressed: () {
-                              final controller = ref.read(playbackControllerProvider);
-                              if (isPlaying) {
-                                controller.pause();
-                              } else {
-                                controller.resume();
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 4.0),
-                          IconButton.filledTonal(
-                            style: IconButton.styleFrom(
-                              backgroundColor: colors.surfaceHover,
-                              foregroundColor: colors.textPrimary,
-                              fixedSize: const Size(34.0, 34.0),
-                              padding: EdgeInsets.zero,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.only(
-                                  topRight: Radius.circular(14.0),
-                                  bottomRight: Radius.circular(14.0),
-                                  topLeft: Radius.circular(4.0),
-                                  bottomLeft: Radius.circular(4.0),
+                                const SizedBox(width: 4.0),
+                                M3PlayPauseButton(
+                                  isPlaying: isPlaying,
+                                  size: 38.0,
+                                  iconSize: 22.0,
+                                  backgroundColor: colors.primary,
+                                  foregroundColor: colors.primary.contrastingColor,
+                                  onPressed: () {
+                                    final controller = ref.read(playbackControllerProvider);
+                                    if (isPlaying) {
+                                      controller.pause();
+                                    } else {
+                                      controller.resume();
+                                    }
+                                  },
                                 ),
-                              ),
+                                const SizedBox(width: 4.0),
+                                IconButton.filledTonal(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: colors.surfaceHover,
+                                    foregroundColor: colors.textPrimary,
+                                    fixedSize: const Size(34.0, 34.0),
+                                    padding: EdgeInsets.zero,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.only(
+                                        topRight: Radius.circular(14.0),
+                                        bottomRight: Radius.circular(14.0),
+                                        topLeft: Radius.circular(4.0),
+                                        bottomLeft: Radius.circular(4.0),
+                                      ),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.skip_next_rounded, size: 18.0),
+                                  onPressed: () => ref.read(playbackControllerProvider).next(),
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.more_vert,
+                                    color: colors.textSecondary,
+                                    size: 24.0,
+                                  ),
+                                  onPressed: () {
+                                    showSongOptionsMenu(context, ref, currentSong);
+                                  },
+                                ),
+                              ],
                             ),
-                            icon: const Icon(Icons.skip_next_rounded, size: 18.0),
-                            onPressed: () => ref.read(playbackControllerProvider).next(),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.more_vert,
-                              color: colors.textSecondary,
-                              size: 24.0,
-                            ),
-                            onPressed: () {
-                              showSongOptionsMenu(context, ref, currentSong);
-                            },
                           ),
                         ],
                       ),

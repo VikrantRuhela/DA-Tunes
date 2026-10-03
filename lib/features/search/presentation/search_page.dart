@@ -690,22 +690,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: () => navigateToArtistByName(context, ref, song.artistId),
-            child: Text(
-              MetadataFormatter.formatArtist(song.artistId),
-              style: theme.typography.body.copyWith(
-                color: theme.textSecondary,
-                decoration: TextDecoration.underline,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+      subtitle: GestureDetector(
+        onTap: () => navigateToArtistByName(context, ref, song.artistId),
+        child: Text(
+          MetadataFormatter.formatArtist(song.artistId),
+          style: theme.typography.body.copyWith(
+            color: theme.textSecondary,
+            decoration: TextDecoration.underline,
           ),
-        ],
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
