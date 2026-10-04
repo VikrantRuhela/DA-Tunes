@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -150,9 +149,12 @@ class WelcomePage extends ConsumerWidget {
                             context.go('/');
                           }
                         },
-                        child: const Text(
-                          'Continue with YouTube Music',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.0),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Continue with YouTube Music',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.0),
+                          ),
                         ),
                       ),
                     )
@@ -176,9 +178,12 @@ class WelcomePage extends ConsumerWidget {
                         onPressed: () async {
                           await ref.read(sessionManagerProvider).setGuestMode(true);
                         },
-                        child: const Text(
-                          'Continue as Guest',
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15.0),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Continue as Guest',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15.0),
+                          ),
                         ),
                       ),
                     )
