@@ -49,9 +49,11 @@ class QueuePage extends ConsumerWidget {
             : ReorderableListView.builder(
                 physics: const BouncingScrollPhysics(),
                 buildDefaultDragHandles: false,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: DATokens.spacingMedium,
-                  vertical: DATokens.spacingSmall,
+                padding: const EdgeInsets.only(
+                  left: DATokens.spacingMedium,
+                  right: DATokens.spacingMedium,
+                  top: DATokens.spacingSmall,
+                  bottom: 120.0,
                 ),
                 itemCount: queue.length,
                 proxyDecorator: (Widget child, int index, Animation<double> animation) {

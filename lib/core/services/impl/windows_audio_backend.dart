@@ -183,6 +183,7 @@ class WindowsAudioBackend implements PlatformAudioBackend {
   Future<void> play() async {
     DALogger.info('WindowsAudioBackend: Start playback.');
     try {
+      await _player.setVolume(_volume);
       await _player.resume();
     } catch (e) {
       // ignore: avoid_print
@@ -201,6 +202,7 @@ class WindowsAudioBackend implements PlatformAudioBackend {
   Future<void> resume() async {
     DALogger.info('WindowsAudioBackend: Resume playback.');
     try {
+      await _player.setVolume(_volume);
       await _player.resume();
     } catch (e) {
       // ignore: avoid_print

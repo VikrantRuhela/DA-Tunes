@@ -522,6 +522,8 @@ class PlaybackController extends ChangeNotifier {
     if (currentSong == null) return;
     if (_validateTransition(PlaybackStatus.playing)) {
       _status = PlaybackStatus.playing;
+      final targetVol = _settings.isMuted ? 0.0 : (_settings.volume / 100.0);
+      _playbackEngine.setVolume(targetVol);
       notifyListeners();
       _startPositionTimer();
 

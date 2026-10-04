@@ -55,9 +55,11 @@ class AboutPage extends ConsumerWidget {
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(
-          horizontal: DATokens.spacingLarge,
-          vertical: DATokens.spacingMedium,
+        padding: const EdgeInsets.only(
+          left: DATokens.spacingLarge,
+          right: DATokens.spacingLarge,
+          top: DATokens.spacingMedium,
+          bottom: 120.0,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,31 +403,6 @@ class AboutPage extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildFeatureItem(BuildContext context, IconData icon, String label) {
-    final colors = context.daColors;
-    final typography = context.daTypography;
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10.0),
-          decoration: BoxDecoration(
-            color: colors.primary.withValues(alpha: 0.05),
-            shape: BoxShape.circle,
-            border: Border.all(color: colors.primary.withValues(alpha: 0.12), width: 1.0),
-          ),
-          child: Icon(icon, color: colors.primary, size: 24.0),
-        ),
-        const SizedBox(height: 8.0),
-        Text(
-          label,
-          style: typography.body.copyWith(fontSize: 11.0, fontWeight: FontWeight.w500),
-          textAlign: TextAlign.center,
-        ),
-      ],
     );
   }
 
