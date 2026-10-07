@@ -17,6 +17,7 @@ class PlayerHeader extends ConsumerWidget {
     final colors = context.daColors;
     final typography = context.daTypography;
     final currentSong = ref.watch(currentSongProvider);
+    final isQueueOpen = ref.watch(activePlayerPanelProvider) == PlayerPanelType.queue;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -38,8 +39,8 @@ class PlayerHeader extends ConsumerWidget {
           children: [
             DAIconButton(
               icon: Icons.queue_music_outlined,
-              tooltip: 'Open Queue',
-              onPressed: () => context.push('/queue'),
+              tooltip: isQueueOpen ? 'Close Queue' : 'Open Queue',
+              onPressed: () => PlayerPanelController.toggleQueue(context, ref),
             ),
             const SizedBox(width: DATokens.spacingTiny),
             ExpandButton(

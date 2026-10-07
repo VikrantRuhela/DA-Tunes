@@ -53,6 +53,7 @@ dependencies:
   audioplayers: ^6.8.1
   media_kit: ^1.2.6
   media_kit_libs_audio: ^1.0.7
+  media_kit_libs_linux: ^1.0.7
   palette_generator: ^0.3.3+7
   audio_service: ^0.18.12
   audio_session: ^0.1.21

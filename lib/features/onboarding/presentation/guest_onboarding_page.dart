@@ -435,7 +435,7 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
                 ],
               ),
             ),
-          ).animate().scale(duration: 500.ms, delay: 300.ms, curve: Curves.easeOutBack),
+          ).animate().scale(duration: 500.ms, delay: 300.ms, curve: Curves.easeOutCubic),
         ],
       ),
     );

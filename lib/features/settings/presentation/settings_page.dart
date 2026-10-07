@@ -552,7 +552,7 @@ class SettingsPage extends ConsumerWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const MusicDnaPage()),
+                        DAMotion.createPageRoute(builder: (context) => const MusicDnaPage()),
                       );
                     },
                   ),
@@ -565,7 +565,7 @@ class SettingsPage extends ConsumerWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const TasteSettingsPage()),
+                        DAMotion.createPageRoute(builder: (context) => const TasteSettingsPage()),
                       );
                     },
                   ),
@@ -658,7 +658,7 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const AboutPage()),
+                    DAMotion.createPageRoute(builder: (context) => const AboutPage()),
                   );
                 },
               ),
@@ -978,7 +978,7 @@ class SettingsPage extends ConsumerWidget {
     if (Platform.isAndroid || Platform.isIOS) {
       final success = await Navigator.push<bool>(
         context,
-        MaterialPageRoute(builder: (context) => const AuthWebViewPage()),
+        DAMotion.createPageRoute(builder: (context) => const AuthWebViewPage()),
       );
       if (success == true) {
         ref.read(ytmSyncManagerProvider.notifier).startSync();
@@ -1009,7 +1009,7 @@ class SettingsPage extends ConsumerWidget {
                 Navigator.pop(context);
                 final success = await Navigator.push<bool>(
                   context,
-                  MaterialPageRoute(builder: (context) => const AuthWebViewPage()),
+                  DAMotion.createPageRoute(builder: (context) => const AuthWebViewPage()),
                 );
                 if (success == true) {
                   ref.read(ytmSyncManagerProvider.notifier).startSync();

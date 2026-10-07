@@ -21,11 +21,11 @@ import '../../domain/entities/value_objects.dart';
 import 'logger_service.dart';
 import 'music_content_classifier.dart';
 
-/// Concrete YouTube Music source adapter mapping remote API details to pure Domain entities.
 class YouTubeMusicAdapter implements MusicSourceAdapter {
   bool _isInitialized = false;
   late yt.YoutubeExplode _ytClient;
   final Map<String, Song> _songCache = {};
+  final http.Client _sharedHttpClient = http.Client();
 
   void cacheSongForTesting(Song song) {
     _songCache[song.id] = song;
@@ -83,6 +83,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
   Future<void> dispose() async {
     if (!_isInitialized) return;
     _ytClient.close();
+    _sharedHttpClient.close();
     _isInitialized = false;
     DALogger.info('YouTubeMusicAdapter: YoutubeExplode client closed.');
   }
@@ -408,7 +409,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
         'params': 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D'
       };
 
-      final response = await http.post(
+      final response = await _sharedHttpClient.post(
         url,
         headers: headers,
         body: jsonEncode(payload),
@@ -583,7 +584,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
       final gl = await _getGuestRegionCode();
       
       print('[HOME] Sending request');
-      final response = await http.post(
+      final response = await _sharedHttpClient.post(
         Uri.parse('https://music.youtube.com/youtubei/v1/browse?key=AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30&prettyPrint=false'),
         headers: headers,
         body: jsonEncode({

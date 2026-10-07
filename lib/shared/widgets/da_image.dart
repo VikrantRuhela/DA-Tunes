@@ -40,6 +40,11 @@ class DAImage extends StatelessWidget {
         final cachedArtwork = File('$cacheDirPath/da_tunes_cache/$trackId.jpg');
         if (cachedArtwork.existsSync()) {
           cleanUrl = cachedArtwork.path;
+        } else {
+          final prefetchedArtwork = File('$cacheDirPath/da_tunes_prefetch/$trackId.jpg');
+          if (prefetchedArtwork.existsSync()) {
+            cleanUrl = prefetchedArtwork.path;
+          }
         }
       }
       if ((cleanUrl == null || cleanUrl.startsWith('http')) && documentsDirPath != null) {

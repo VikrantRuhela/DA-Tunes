@@ -5,6 +5,7 @@ import 'menu_action.dart';
 import '../da_image.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/services/device_memory_manager.dart';
+import '../../animations/motion_system.dart';
 
 class FloatingMoreOptionsRoute extends PopupRoute<void> {
   final Widget child;
@@ -25,10 +26,10 @@ class FloatingMoreOptionsRoute extends PopupRoute<void> {
   String? get barrierLabel => 'Dismiss Options Menu';
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 250);
+  Duration get transitionDuration => DAMotion.dialogDuration;
 
   @override
-  Duration get reverseTransitionDuration => const Duration(milliseconds: 200);
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 180);
 
   @override
   Widget buildPage(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) {
@@ -37,18 +38,15 @@ class FloatingMoreOptionsRoute extends PopupRoute<void> {
 
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
-    final scale = Tween<double>(begin: 0.95, end: 1.0).animate(
-      CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: DAMotion.enterCurve,
+      reverseCurve: DAMotion.exitCurve,
     );
-    final opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-    );
-    final yOffset = Tween<double>(begin: 10.0, end: 0.0).animate(
-      CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-    );
-    final blur = Tween<double>(begin: 0.0, end: 8.0).animate(
-      CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-    );
+    final scale = Tween<double>(begin: 0.95, end: 1.0).animate(curved);
+    final opacity = Tween<double>(begin: 0.0, end: 1.0).animate(curved);
+    final yOffset = Tween<double>(begin: 10.0, end: 0.0).animate(curved);
+    final blur = Tween<double>(begin: 0.0, end: 8.0).animate(curved);
 
     return AnimatedBuilder(
       animation: animation,

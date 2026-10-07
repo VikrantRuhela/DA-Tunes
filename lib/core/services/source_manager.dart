@@ -74,8 +74,15 @@ class SourceManager {
           DALogger.error('Operation failed after $attempts attempts', e, stack);
           rethrow;
         }
-        DALogger.warning('Operation failed. Retrying... (Attempt $attempts of $retries)');
-        await Future.delayed(Duration(milliseconds: 300 * attempts));
+        final errStr = e.toString().toLowerCase();
+        int delayMs = 400 * attempts;
+        if (errStr.contains('429') || errStr.contains('rate') || errStr.contains('too many')) {
+          delayMs = 1500 * attempts;
+        }
+        final jitter = (DateTime.now().microsecond % 200);
+        delayMs += jitter;
+        DALogger.warning('Operation failed. Backing off for ${delayMs}ms (Attempt $attempts of $retries)');
+        await Future.delayed(Duration(milliseconds: delayMs));
       }
     }
     throw const SourceException('Operation failed after retries');

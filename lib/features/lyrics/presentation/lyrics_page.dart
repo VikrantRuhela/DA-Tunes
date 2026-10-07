@@ -12,6 +12,7 @@ import '../../../shared/widgets/da_image.dart';
 import '../../../core/services/device_memory_manager.dart';
 import '../../../shared/providers/library_providers.dart';
 import '../../../shared/providers/theme_providers.dart';
+import '../../../shared/animations/motion_system.dart';
 
 final lyricsActiveIndexProvider = Provider<int>((ref) {
   final position = ref.watch(playbackControllerProvider.select((c) => c.position));
@@ -165,11 +166,34 @@ class LyricLineWidget extends ConsumerWidget {
   }
 }
 
-class LyricsPage extends ConsumerWidget {
+class LyricsPage extends ConsumerStatefulWidget {
   const LyricsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LyricsPage> createState() => _LyricsPageState();
+}
+
+class _LyricsPageState extends ConsumerState<LyricsPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.lyrics;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    if (ref.read(activePlayerPanelProvider) == PlayerPanelType.lyrics) {
+      ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.none;
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.daColors;
     final typography = context.daTypography;
 
@@ -181,7 +205,13 @@ class LyricsPage extends ConsumerWidget {
         canPop: true,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) {
-            ref.read(immersiveModeProvider.notifier).state = true;
+            if (ref.read(activePlayerPanelProvider) == PlayerPanelType.lyrics) {
+              ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.none;
+              if (ref.read(restoreImmersiveOnCloseProvider)) {
+                ref.read(immersiveModeProvider.notifier).state = true;
+                ref.read(restoreImmersiveOnCloseProvider.notifier).state = false;
+              }
+            }
           }
         },
         child: Scaffold(
@@ -305,7 +335,13 @@ class LyricsPage extends ConsumerWidget {
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
-          ref.read(immersiveModeProvider.notifier).state = true;
+          if (ref.read(activePlayerPanelProvider) == PlayerPanelType.lyrics) {
+            ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.none;
+            if (ref.read(restoreImmersiveOnCloseProvider)) {
+              ref.read(immersiveModeProvider.notifier).state = true;
+              ref.read(restoreImmersiveOnCloseProvider.notifier).state = false;
+            }
+          }
         }
       },
       child: Scaffold(
@@ -619,7 +655,9 @@ class _LyricsGlassContainerState extends ConsumerState<_LyricsGlassContainer> {
     }
 
     Widget contentBody = AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
+      duration: ref.scaledDuration(DAMotion.standard),
+      switchInCurve: ref.scaledCurve(DAMotion.enterCurve),
+      switchOutCurve: ref.scaledCurve(DAMotion.exitCurve),
       child: KeyedSubtree(
         key: ValueKey<String>('${widget.songId}_${lyricsState.isLoading}'),
         child: innerContent,

@@ -55,31 +55,6 @@ Future<Socket> connectDualStack(
 
   DALogger.info('[Network] connectDualStack starting: $host:$port (secure: $isSecure)');
 
-  if (host.contains('googlevideo.com')) {
-    DALogger.info('[Network] connectDualStack: host is googlevideo.com, forcing IPv4-only path');
-    try {
-      final addresses = await InternetAddress.lookup(host, type: InternetAddressType.IPv4)
-          .timeout(const Duration(milliseconds: 2000));
-      if (addresses.isNotEmpty) {
-        DALogger.info('[Network] connectDualStack: googlevideo.com resolved to IPv4: ${addresses.first.address}');
-        final connStart = DateTime.now();
-        var socket = await Socket.connect(addresses.first, port).timeout(const Duration(seconds: 3));
-        if (isSecure) {
-          socket = await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 5));
-        }
-        DALogger.info('[Network] connectDualStack: googlevideo.com connected directly to IPv4 in ${DateTime.now().difference(connStart).inMilliseconds}ms');
-        return socket;
-      }
-    } catch (err) {
-      DALogger.warning('[Network] connectDualStack: googlevideo.com IPv4 lookup/connect failed: $err. Falling back to native connect.');
-    }
-    final socket = await Socket.connect(host, port).timeout(const Duration(seconds: 3));
-    if (isSecure) {
-      return await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 5));
-    }
-    return socket;
-  }
-
   try {
     List<InternetAddress> ipv6Addresses = [];
     List<InternetAddress> ipv4Addresses = [];
@@ -94,13 +69,13 @@ Future<Socket> connectDualStack(
       final dnsStart = DateTime.now();
 
       final ipv6Future = InternetAddress.lookup(host, type: InternetAddressType.IPv6)
-          .timeout(const Duration(milliseconds: 1500))
+          .timeout(const Duration(milliseconds: 3000))
           .catchError((err) {
             DALogger.warning('[Network] connectDualStack: IPv6 lookup error for $host: $err');
             return <InternetAddress>[];
           });
       final ipv4Future = InternetAddress.lookup(host, type: InternetAddressType.IPv4)
-          .timeout(const Duration(milliseconds: 1500))
+          .timeout(const Duration(milliseconds: 3000))
           .catchError((err) {
             DALogger.warning('[Network] connectDualStack: IPv4 lookup error for $host: $err');
             return <InternetAddress>[];
@@ -122,99 +97,44 @@ Future<Socket> connectDualStack(
       }
     }
 
-    if (ipv6Addresses.isEmpty && ipv4Addresses.isEmpty) {
-      DALogger.warning('[Network] connectDualStack: DNS lookup returned no addresses for $host. Falling back to native connect.');
-      final socket = await Socket.connect(host, port).timeout(const Duration(seconds: 3));
-      if (isSecure) {
-        return await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 5));
-      }
-      return socket;
-    }
-
-    if (ipv6Addresses.isEmpty) {
-      DALogger.info('[Network] connectDualStack: IPv6 empty for $host. Connecting directly to IPv4: ${ipv4Addresses.first.address}');
-      final connStart = DateTime.now();
-      var socket = await Socket.connect(ipv4Addresses.first, port).timeout(const Duration(seconds: 3));
-      if (isSecure) {
-        socket = await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 5));
-      }
-      DALogger.info('[Network] connectDualStack: directly connected and secured to IPv4 ${ipv4Addresses.first.address} for $host in ${DateTime.now().difference(connStart).inMilliseconds}ms');
-      return socket;
-    }
-
-    if (ipv4Addresses.isEmpty) {
-      DALogger.info('[Network] connectDualStack: IPv4 empty for $host. Connecting directly to IPv6: ${ipv6Addresses.first.address}');
-      final connStart = DateTime.now();
-      var socket = await Socket.connect(ipv6Addresses.first, port).timeout(const Duration(seconds: 3));
-      if (isSecure) {
-        socket = await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 5));
-      }
-      DALogger.info('[Network] connectDualStack: directly connected and secured to IPv6 ${ipv6Addresses.first.address} for $host in ${DateTime.now().difference(connStart).inMilliseconds}ms');
-      return socket;
-    }
-
-    DALogger.info('[Network] connectDualStack: racing connection for $host. IPv6 target: ${ipv6Addresses.first.address}, IPv4 target: ${ipv4Addresses.first.address}');
-    final completer = Completer<Socket>();
-    const totalAttempts = 2;
-    int failures = 0;
-
-    void tryConnect(InternetAddress addr) async {
-      final connStart = DateTime.now();
-      DALogger.info('[Network] Racing connection attempt start: ${addr.address} ($host)');
+    if (ipv6Addresses.isNotEmpty) {
       try {
-        var socket = await Socket.connect(addr, port).timeout(const Duration(seconds: 3));
+        final connStart = DateTime.now();
+        var socket = await Socket.connect(ipv6Addresses.first, port).timeout(const Duration(seconds: 4));
         if (isSecure) {
-          DALogger.info('[Network] Racing connection upgrading socket to SecureSocket for ${addr.address} ($host)');
-          socket = await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 5));
+          socket = await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 6));
         }
-        final elapsed = DateTime.now().difference(connStart).inMilliseconds;
-        if (!completer.isCompleted) {
-          DALogger.info('[Network] Racing connection won by ${addr.address} ($host) in ${elapsed}ms (secure: $isSecure)');
-          completer.complete(socket);
-        } else {
-          DALogger.info('[Network] Racing connection completed but lost race: ${addr.address} ($host) in ${elapsed}ms. Destroying socket.');
-          socket.destroy();
-        }
+        DALogger.info('[Network] connectDualStack: directly connected and secured to IPv6 ${ipv6Addresses.first.address} for $host in ${DateTime.now().difference(connStart).inMilliseconds}ms');
+        return socket;
       } catch (err) {
-        final elapsed = DateTime.now().difference(connStart).inMilliseconds;
-        DALogger.warning('[Network] Racing connection failed: ${addr.address} ($host) in ${elapsed}ms with error: $err');
-        failures++;
-        if (failures >= totalAttempts && !completer.isCompleted) {
-          DALogger.error('[Network] Racing connection: all connection attempts failed for $host');
-          completer.completeError(Exception('Dual stack connection racing failed for $host'));
-        }
+        DALogger.info('[Network] connectDualStack: IPv6 connection failed for $host, falling back to IPv4: $err');
       }
     }
 
-    tryConnect(ipv6Addresses.first);
-
-    await Future.delayed(const Duration(milliseconds: 150));
-    if (!completer.isCompleted) {
-      DALogger.info('[Network] Racing connection: 150ms elapsed, starting fallback connection to IPv4: ${ipv4Addresses.first.address}');
-      tryConnect(ipv4Addresses.first);
+    if (ipv4Addresses.isNotEmpty) {
+      try {
+        final connStart = DateTime.now();
+        var socket = await Socket.connect(ipv4Addresses.first, port).timeout(const Duration(seconds: 4));
+        if (isSecure) {
+          socket = await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 6));
+        }
+        DALogger.info('[Network] connectDualStack: directly connected and secured to IPv4 ${ipv4Addresses.first.address} for $host in ${DateTime.now().difference(connStart).inMilliseconds}ms');
+        return socket;
+      } catch (err) {
+        DALogger.warning('[Network] connectDualStack: IPv4 connection failed for $host: $err');
+      }
     }
 
-    return await completer.future.timeout(
-      const Duration(seconds: 8),
-      onTimeout: () {
-        if (!completer.isCompleted) {
-          DALogger.error('[Network] Racing connection timeout (8s) hit for $host. Retrying raw native connect.');
-          completer.completeError(TimeoutException('Dual stack connection timeout for $host'));
-        }
-        return () async {
-          final socket = await Socket.connect(host, port).timeout(const Duration(seconds: 3));
-          if (isSecure) {
-            return await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 5));
-          }
-          return socket;
-        }();
-      },
-    );
+    final socket = await Socket.connect(host, port).timeout(const Duration(seconds: 4));
+    if (isSecure) {
+      return await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 6));
+    }
+    return socket;
   } catch (err) {
     DALogger.error('[Network] connectDualStack error fallback to native connect for $host: $err');
-    final socket = await Socket.connect(host, port).timeout(const Duration(seconds: 3));
+    final socket = await Socket.connect(host, port).timeout(const Duration(seconds: 4));
     if (isSecure) {
-      return await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 5));
+      return await SecureSocket.secure(socket, host: secureHost ?? host).timeout(const Duration(seconds: 6));
     }
     return socket;
   }
@@ -224,6 +144,8 @@ class FallbackHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     final client = super.createHttpClient(context);
+    client.idleTimeout = const Duration(seconds: 30);
+    client.maxConnectionsPerHost = 6;
     client.connectionFactory = (Uri url, String? proxyHost, int? proxyPort) async {
       final host = proxyHost ?? url.host;
       final port = proxyPort ?? (url.port != 0 ? url.port : (url.scheme == 'https' ? 443 : 80));

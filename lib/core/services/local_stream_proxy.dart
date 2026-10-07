@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'logger_service.dart';
 import 'stream_resolver.dart';
+import 'network_identity.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _DnsCacheEntry {
@@ -19,17 +20,6 @@ class _DnsCacheEntry {
 final Map<String, _DnsCacheEntry> _dnsProxyCache = {};
 
 Future<Socket> _connectDualStack(String host, int port) async {
-  if (host.contains('googlevideo.com')) {
-    try {
-      final addresses = await InternetAddress.lookup(host, type: InternetAddressType.IPv4)
-          .timeout(const Duration(milliseconds: 2000));
-      if (addresses.isNotEmpty) {
-        return await Socket.connect(addresses.first, port).timeout(const Duration(seconds: 4));
-      }
-    } catch (_) {}
-    return await Socket.connect(host, port).timeout(const Duration(seconds: 4));
-  }
-
   try {
     List<InternetAddress> ipv6Addresses = [];
     List<InternetAddress> ipv4Addresses = [];
@@ -40,10 +30,10 @@ Future<Socket> _connectDualStack(String host, int port) async {
       ipv4Addresses = cached.ipv4;
     } else {
       final ipv6Future = InternetAddress.lookup(host, type: InternetAddressType.IPv6)
-          .timeout(const Duration(milliseconds: 1500))
+          .timeout(const Duration(milliseconds: 3000))
           .catchError((_) => <InternetAddress>[]);
       final ipv4Future = InternetAddress.lookup(host, type: InternetAddressType.IPv4)
-          .timeout(const Duration(milliseconds: 1500))
+          .timeout(const Duration(milliseconds: 3000))
           .catchError((_) => <InternetAddress>[]);
       
       final results = await Future.wait([ipv6Future, ipv4Future]);
@@ -59,54 +49,49 @@ Future<Socket> _connectDualStack(String host, int port) async {
       }
     }
     
-    if (ipv6Addresses.isEmpty && ipv4Addresses.isEmpty) {
-      return await Socket.connect(host, port);
-    }
-    
-    if (ipv6Addresses.isEmpty) {
-      return await Socket.connect(ipv4Addresses.first, port).timeout(const Duration(seconds: 4));
-    }
-    
-    if (ipv4Addresses.isEmpty) {
-      return await Socket.connect(ipv6Addresses.first, port).timeout(const Duration(seconds: 4));
-    }
-    
-    final completer = Completer<Socket>();
-    final totalAttempts = 2; // Race first IPv6 and first IPv4 addresses
-    int failures = 0;
-    
-    void tryConnect(InternetAddress addr) async {
+    if (ipv6Addresses.isNotEmpty) {
       try {
-        final socket = await Socket.connect(addr, port).timeout(const Duration(seconds: 4));
-        if (!completer.isCompleted) {
-          completer.complete(socket);
-        } else {
-          socket.destroy();
-        }
-      } catch (_) {
-        failures++;
-        if (failures >= totalAttempts && !completer.isCompleted) {
-          completer.completeError(Exception('Dual stack connection racing failed for $host'));
-        }
-      }
+        return await Socket.connect(ipv6Addresses.first, port).timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
+    
+    if (ipv4Addresses.isNotEmpty) {
+      try {
+        return await Socket.connect(ipv4Addresses.first, port).timeout(const Duration(seconds: 4));
+      } catch (_) {}
     }
 
-    tryConnect(ipv6Addresses.first);
-    
-    await Future.delayed(const Duration(milliseconds: 200));
-    if (!completer.isCompleted) {
-      tryConnect(ipv4Addresses.first);
-    }
-    
-    return await completer.future;
+    return await Socket.connect(host, port).timeout(const Duration(seconds: 4));
   } catch (_) {
-    return await Socket.connect(host, port);
+    return await Socket.connect(host, port).timeout(const Duration(seconds: 4));
   }
 }
 
 class LocalStreamProxy {
   HttpServer? _server;
   int get port => _server?.port ?? 0;
+  HttpClient? _sharedClient;
+
+  HttpClient get _client {
+    if (_sharedClient == null) {
+      _sharedClient = HttpClient()
+        ..idleTimeout = const Duration(seconds: 30)
+        ..maxConnectionsPerHost = 6;
+      _sharedClient!.connectionFactory = (Uri url, String? proxyHost, int? proxyPort) async {
+        final host = proxyHost ?? url.host;
+        final port = proxyPort ?? (url.port != 0 ? url.port : (url.scheme == 'https' ? 443 : 80));
+        
+        final socket = await _connectDualStack(host, port);
+
+        if (url.scheme.toLowerCase() == 'https') {
+          final secureSocket = await SecureSocket.secure(socket, host: host);
+          return ConnectionTask.fromSocket(Future.value(secureSocket), () {});
+        }
+        return ConnectionTask.fromSocket(Future.value(socket), () {});
+      };
+    }
+    return _sharedClient!;
+  }
 
   Future<void> start() async {
     try {
@@ -183,22 +168,6 @@ class LocalStreamProxy {
       }
     }
 
-    final client = HttpClient();
-
-    // Happy Eyeballs dual-stack connection (crucial for IPv6-only networks like Jio and blackholed IPv6 routes)
-    client.connectionFactory = (Uri url, String? proxyHost, int? proxyPort) async {
-      final host = proxyHost ?? url.host;
-      final port = proxyPort ?? (url.port != 0 ? url.port : (url.scheme == 'https' ? 443 : 80));
-      
-      final socket = await _connectDualStack(host, port);
-
-      if (url.scheme.toLowerCase() == 'https') {
-        final secureSocket = await SecureSocket.secure(socket, host: host);
-        return ConnectionTask.fromSocket(Future.value(secureSocket), () {});
-      }
-      return ConnectionTask.fromSocket(Future.value(socket), () {});
-    };
-
     int httpStatusCode = -1;
     List<String> redirectChain = [];
     String cdnEndpoint = targetUri.host;
@@ -210,29 +179,25 @@ class LocalStreamProxy {
 
     try {
       HttpClientResponse? forwardRes;
+      HttpClientRequest? forwardReq;
       
       for (int attempt = 1; attempt <= retryCount; attempt++) {
         try {
           DALogger.info('LocalStreamProxy DIAGNOSTIC: incoming method=${request.method}, headers:');
           request.headers.forEach((k, v) => DALogger.info('  [Header] $k: $v'));
           failureStage = 'Opening connection (Attempt $attempt)';
-          final forwardReq = await client.openUrl(request.method, targetUri)
+          forwardReq = await _client.openUrl(request.method, targetUri)
               .timeout(const Duration(milliseconds: timeoutMs));
 
-          // Copy headers from client request to forward request
           request.headers.forEach((name, values) {
             if (name.toLowerCase() != 'host') {
               for (final val in values) {
-                forwardReq.headers.add(name, val);
+                forwardReq!.headers.add(name, val);
               }
             }
           });
 
-          // Set browser user-agent to avoid 403 Forbidden
-          forwardReq.headers.set(
-            'User-Agent',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          );
+          forwardReq.headers.set('User-Agent', NetworkIdentity.platformUserAgent);
 
           failureStage = 'Waiting for response (Attempt $attempt)';
           forwardRes = await forwardReq.close()
@@ -242,12 +207,28 @@ class LocalStreamProxy {
           redirectChain = forwardRes.redirects.map((r) => r.location.toString()).toList();
 
           if (httpStatusCode >= 400) {
-            final body = await forwardRes.transform(SystemEncoding().decoder).join();
+            final body = await forwardRes.transform(const SystemEncoding().decoder).join();
             DALogger.error('LocalStreamProxy DIAGNOSTIC: CDN 4xx body: $body');
+            if (httpStatusCode == 429 || httpStatusCode == 503) {
+              final retryAfterStr = forwardRes.headers.value('retry-after');
+              int delayMs = 1000 * attempt;
+              if (retryAfterStr != null) {
+                final seconds = int.tryParse(retryAfterStr);
+                if (seconds != null) {
+                  delayMs = (seconds * 1000).clamp(500, 8000);
+                }
+              }
+              final jitter = (DateTime.now().microsecond % 250);
+              delayMs += jitter;
+              if (attempt < retryCount) {
+                DALogger.warning('LocalStreamProxy: Rate limited ($httpStatusCode). Backing off for ${delayMs}ms before retry...');
+                await Future.delayed(Duration(milliseconds: delayMs));
+                continue;
+              }
+            }
             throw HttpException('Server returned status code $httpStatusCode: $body');
           }
           
-          // Copy status code and headers back to client
           request.response.statusCode = forwardRes.statusCode;
           forwardRes.headers.forEach((name, values) {
             for (final val in values) {
@@ -262,7 +243,7 @@ class LocalStreamProxy {
           if (!prefetchParent.existsSync()) {
             prefetchParent.createSync(recursive: true);
           }
-          final tempFile = File(p.join(prefetchParent.path, '$trackId.tmp'));
+          final tempFile = File(p.join(prefetchParent.path, '$trackId.playback.tmp'));
           final prefetchedFile = File(p.join(prefetchParent.path, '$trackId.prefetch'));
 
           final rangeHeader = request.headers.value('range');
@@ -300,31 +281,36 @@ class LocalStreamProxy {
               }
             }
           } catch (e) {
+            forwardReq.abort();
             await ioSink?.close();
             if (tempFile.existsSync()) tempFile.deleteSync();
+            final isPeerClosed = e is SocketException && e.toString().contains('Connection closed by peer');
+            if (isPeerClosed) {
+              return;
+            }
             rethrow;
           }
 
-          break; // Exit retry loop on success
+          break;
         } catch (e) {
           exceptionDetails = e.toString();
+          forwardReq?.abort();
           
-          // Determine if we should fail or retry
           final isPeerClosed = e is SocketException && exceptionDetails.contains('Connection closed by peer');
-          if (attempt == retryCount || isPeerClosed) {
-            if (!isPeerClosed) {
-              DALogger.error('=== STREAM PROXY FAILURE DIAGNOSTIC ===');
-              DALogger.error('- Target CDN Endpoint: $cdnEndpoint');
-              DALogger.error('- HTTP Status Code: $httpStatusCode');
-              DALogger.error('- Redirect Chain: $redirectChain');
-              DALogger.error('- Network Protocol: $networkProtocol');
-              DALogger.error('- Failure Stage: $failureStage');
-              DALogger.error('- Exception Details: $exceptionDetails');
-              DALogger.error('- Timeout Setting: ${timeoutMs}ms');
-              DALogger.error('=======================================');
-            }
+          if (isPeerClosed) {
+            return;
+          }
+          if (attempt == retryCount) {
+            DALogger.error('=== STREAM PROXY FAILURE DIAGNOSTIC ===');
+            DALogger.error('- Target CDN Endpoint: $cdnEndpoint');
+            DALogger.error('- HTTP Status Code: $httpStatusCode');
+            DALogger.error('- Redirect Chain: $redirectChain');
+            DALogger.error('- Network Protocol: $networkProtocol');
+            DALogger.error('- Failure Stage: $failureStage');
+            DALogger.error('- Exception Details: $exceptionDetails');
+            DALogger.error('- Timeout Setting: ${timeoutMs}ms');
+            DALogger.error('=======================================');
 
-            // Invalidate cache immediately on failure so fresh URL is fetched on retry
             if (trackId != null && trackId.isNotEmpty) {
               StreamResolver.invalidate(trackId);
             }
@@ -336,12 +322,11 @@ class LocalStreamProxy {
         }
       }
     } catch (e) {
-      // Errors already reported in loop
+      DALogger.error('LocalStreamProxy: Pipeline exception: $e');
     } finally {
       try {
         await request.response.close();
       } catch (_) {}
-      client.close();
     }
   }
 
@@ -350,13 +335,8 @@ class LocalStreamProxy {
       final cachedArtwork = File(p.join(cacheParent.path, '$trackId.jpg'));
       if (cachedArtwork.existsSync()) return;
 
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 10);
-      final req = await client.getUrl(Uri.parse(artworkUrl));
-      req.headers.set(
-        'User-Agent',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      );
+      final req = await _client.getUrl(Uri.parse(artworkUrl));
+      req.headers.set('User-Agent', NetworkIdentity.platformUserAgent);
       final res = await req.close();
       if (res.statusCode == 200) {
         final tempArtFile = File(p.join(cacheParent.path, '$trackId.art.tmp'));
@@ -366,7 +346,6 @@ class LocalStreamProxy {
         await tempArtFile.rename(cachedArtwork.path);
         DALogger.info('LocalStreamProxy: Saved artwork for "$trackId" to cache.');
       }
-      client.close();
     } catch (e) {
       DALogger.warning('LocalStreamProxy: Failed to cache artwork for "$trackId": $e');
     }
@@ -451,6 +430,8 @@ class LocalStreamProxy {
   Future<void> stop() async {
     await _server?.close(force: true);
     _server = null;
+    _sharedClient?.close(force: true);
+    _sharedClient = null;
     DALogger.info('LocalStreamProxy: Stopped');
   }
 }

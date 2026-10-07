@@ -1,0 +1,96 @@
+name: Build Linux AppImage
+
+on:
+  push:
+    branches: [ v2.0, main ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-appimage:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get remove -y libunwind-14-dev || true
+          sudo apt-get install -y --no-install-recommends \
+            build-essential clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev \
+            file desktop-file-utils libmpv-dev mpv squashfs-tools
+          sudo apt-get install -y --no-install-recommends \
+            libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev || sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.0-dev || true
+          
+          if [ -f /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc ]; then
+            sudo cp -f /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc || true
+          fi
+          true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Enable Linux Desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Build Linux Desktop Release
+        run: flutter build linux --release
+
+      - name: Package AppImage
+        run: |
+          curl -fsSL https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64 -o runtime-x86_64
+          chmod +x runtime-x86_64
+
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          
+          BUNDLE_DIR=$(find build/linux -type d -name "bundle" | head -n 1)
+          if [ -z "${BUNDLE_DIR}" ] || [ ! -d "${BUNDLE_DIR}" ]; then
+            echo "Bundle directory not found!"
+            find build -maxdepth 5
+            exit 1
+          fi
+          cp -r "${BUNDLE_DIR}/." AppDir/usr/bin/
+
+          cp assets/images/da_logo.png AppDir/usr/share/icons/hicolor/256x256/apps/da_tunes.png
+          cp assets/images/da_logo.png AppDir/da_tunes.png
+          cp assets/images/da_logo.png AppDir/.DirIcon
+          ln -sf usr/bin/da_tunes AppDir/da_tunes
+
+          printf "[Desktop Entry]\nName=DA Tunes\nComment=DA Tunes - Premium audio player application\nExec=da_tunes\nIcon=da_tunes\nTerminal=false\nType=Application\nCategories=Audio;Music;Player;AudioVideo;\n" > AppDir/da_tunes.desktop
+
+          printf '#!/bin/sh\nHERE="$(dirname "$(readlink -f "${0}")")"\nexport LD_LIBRARY_PATH="${HERE}/usr/bin/lib:${LD_LIBRARY_PATH}"\nexec "${HERE}/usr/bin/da_tunes" "$@"\n' > AppDir/AppRun
+          chmod +x AppDir/AppRun
+
+          mksquashfs AppDir appdir.squashfs -root-owned -noappend -no-progress -processors 2
+          cat runtime-x86_64 appdir.squashfs > DA_Tunes-x86_64.AppImage
+          chmod +x DA_Tunes-x86_64.AppImage
+          ls -lh DA_Tunes-x86_64.AppImage
+
+      - name: Upload AppImage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DA_Tunes-Linux-x86_64-AppImage
+          path: DA_Tunes-x86_64.AppImage
+          if-no-files-found: error
+
+      - name: Release AppImage on Tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: DA_Tunes-x86_64.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

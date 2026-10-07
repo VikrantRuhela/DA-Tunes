@@ -10,6 +10,7 @@ import '../../../shared/widgets/da_image.dart';
 import '../../../shared/utils/song_options.dart';
 import '../data/local_library_repository.dart';
 import '../../../core/services/playback_controller.dart';
+import '../../../shared/animations/motion_system.dart';
 
 enum LocalCategory {
   songs,
@@ -296,7 +297,7 @@ class LocalCategoryPage extends ConsumerWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                DAMotion.createPageRoute(
                   builder: (context) => LocalCategoryPage(
                     category: LocalCategory.albums,
                     filterValue: album.name,
@@ -351,7 +352,7 @@ class LocalCategoryPage extends ConsumerWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                DAMotion.createPageRoute(
                   builder: (context) => LocalCategoryPage(
                     category: LocalCategory.artists,
                     filterValue: artist.name,
@@ -411,7 +412,7 @@ class LocalCategoryPage extends ConsumerWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
+                    DAMotion.createPageRoute(
                       builder: (context) => LocalCategoryPage(
                         category: LocalCategory.folders,
                         filterValue: folder,

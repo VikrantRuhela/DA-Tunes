@@ -17,6 +17,7 @@ import '../../shared/widgets/app_shell.dart';
 import '../../features/onboarding/presentation/welcome_page.dart';
 import '../../features/onboarding/presentation/guest_onboarding_page.dart';
 import '../../shared/providers/backend_providers.dart';
+import '../../shared/animations/motion_system.dart';
 
 // Global navigator key
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -62,11 +63,19 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/welcome',
-        builder: (context, state) => const WelcomePage(),
+        pageBuilder: (context, state) => DAMotion.buildPageTransition(
+          key: state.pageKey,
+          child: const WelcomePage(),
+          type: DAPageTransitionType.fade,
+        ),
       ),
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) => const GuestOnboardingPage(),
+        pageBuilder: (context, state) => DAMotion.buildPageTransition(
+          key: state.pageKey,
+          child: const GuestOnboardingPage(),
+          type: DAPageTransitionType.fade,
+        ),
       ),
       ShellRoute(
         navigatorKey: shellNavigatorKey,
@@ -76,51 +85,91 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/',
-            builder: (context, state) => const HomePage(),
+            pageBuilder: (context, state) => DAMotion.buildPageTransition(
+              key: state.pageKey,
+              child: const HomePage(),
+              type: DAPageTransitionType.tab,
+            ),
           ),
           GoRoute(
             path: '/search',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final query = state.uri.queryParameters['q'] ?? '';
-              return SearchPage(initialQuery: query);
+              return DAMotion.buildPageTransition(
+                key: state.pageKey,
+                child: SearchPage(initialQuery: query),
+                type: DAPageTransitionType.tab,
+              );
             },
           ),
           GoRoute(
             path: '/library',
-            builder: (context, state) => const LibraryPage(),
+            pageBuilder: (context, state) => DAMotion.buildPageTransition(
+              key: state.pageKey,
+              child: const LibraryPage(),
+              type: DAPageTransitionType.tab,
+            ),
           ),
           GoRoute(
             path: '/player',
-            builder: (context, state) => const PlayerPage(),
+            pageBuilder: (context, state) => DAMotion.buildPageTransition(
+              key: state.pageKey,
+              child: const PlayerPage(),
+              type: DAPageTransitionType.modal,
+            ),
           ),
           GoRoute(
             path: '/lyrics',
-            builder: (context, state) => const LyricsPage(),
+            pageBuilder: (context, state) => DAMotion.buildPageTransition(
+              key: state.pageKey,
+              child: const LyricsPage(),
+              type: DAPageTransitionType.modal,
+            ),
           ),
           GoRoute(
             path: '/queue',
-            builder: (context, state) => const QueuePage(),
+            pageBuilder: (context, state) => DAMotion.buildPageTransition(
+              key: state.pageKey,
+              child: const QueuePage(),
+              type: DAPageTransitionType.modal,
+            ),
           ),
           GoRoute(
             path: '/favorites',
-            builder: (context, state) => const FavoritesPage(),
+            pageBuilder: (context, state) => DAMotion.buildPageTransition(
+              key: state.pageKey,
+              child: const FavoritesPage(),
+              type: DAPageTransitionType.tab,
+            ),
           ),
           GoRoute(
             path: '/settings',
-            builder: (context, state) => const SettingsPage(),
+            pageBuilder: (context, state) => DAMotion.buildPageTransition(
+              key: state.pageKey,
+              child: const SettingsPage(),
+              type: DAPageTransitionType.tab,
+            ),
           ),
           GoRoute(
             path: '/album/:id',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final albumId = state.pathParameters['id'] ?? '';
-              return AlbumPage(albumId: albumId);
+              return DAMotion.buildPageTransition(
+                key: state.pageKey,
+                child: AlbumPage(albumId: albumId),
+                type: DAPageTransitionType.hierarchical,
+              );
             },
           ),
           GoRoute(
             path: '/artist/:id',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final artistId = state.pathParameters['id'] ?? '';
-              return ArtistPage(artistId: artistId);
+              return DAMotion.buildPageTransition(
+                key: state.pageKey,
+                child: ArtistPage(artistId: artistId),
+                type: DAPageTransitionType.hierarchical,
+              );
             },
           ),
         ],

@@ -8,6 +8,7 @@ import '../../shared/models/music_models.dart';
 import '../../data/repositories/download_repository.dart';
 import 'stream_resolver.dart';
 import 'logger_service.dart';
+import 'network_identity.dart';
 
 enum DownloadStatus { queued, downloading, paused, completed, failed, cancelled }
 
@@ -61,6 +62,12 @@ class DownloadTask {
 }
 
 class DownloadManager extends ChangeNotifier {
+  static HttpClient? _sharedDownloadClient;
+  static HttpClient get _downloadClient => _sharedDownloadClient ??= HttpClient()
+    ..connectionTimeout = const Duration(seconds: 20)
+    ..idleTimeout = const Duration(seconds: 30)
+    ..maxConnectionsPerHost = 4;
+
   final StreamResolver _streamResolver;
   final DownloadRepository _repository;
   final Map<String, DownloadTask> _tasks = {};
@@ -186,7 +193,7 @@ class DownloadManager extends ChangeNotifier {
 
   void _processQueue() {
     final activeCount = _tasks.values.where((t) => t.status == DownloadStatus.downloading).length;
-    final maxConcurrent = 3;
+    const maxConcurrent = 3;
     if (activeCount >= maxConcurrent) return;
 
     final queuedTasks = _tasks.values.where((t) => t.status == DownloadStatus.queued).toList();
@@ -239,19 +246,13 @@ class DownloadManager extends ChangeNotifier {
         isResume = true;
       }
 
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 15);
-      final request = await client.getUrl(Uri.parse(stream.streamUrl));
+      final request = await _downloadClient.getUrl(Uri.parse(stream.streamUrl));
 
       stream.headers.forEach((key, val) {
         request.headers.set(key, val);
       });
 
-      // Browser user agent to avoid throttling/403
-      request.headers.set(
-        'User-Agent',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      );
+      request.headers.set('User-Agent', NetworkIdentity.platformUserAgent);
 
       if (isResume && existingBytes > 0) {
         request.headers.set('Range', 'bytes=$existingBytes-');

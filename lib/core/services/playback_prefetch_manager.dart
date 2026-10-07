@@ -1,7 +1,3 @@
-// SPDX-License-Identifier: GPL-3.0-only
-// Copyright (c) 2026 DA Tunes Contributors
-// Licensed under GPL-3.0.
-
 import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart' as p;
@@ -10,23 +6,29 @@ import '../../shared/models/music_models.dart';
 import 'stream_resolver.dart';
 import 'local_stream_proxy.dart';
 import 'logger_service.dart';
+import 'network_identity.dart';
 
-/// Manages background prefetching for the top 3 upcoming queue songs
-/// and handles intelligent promotion to permanent cache upon reaching 85% playback.
 class PlaybackPrefetchManager {
   final StreamResolver _streamResolver;
   final LocalStreamProxy _proxy;
   
   final Map<String, HttpClientRequest> _activeDownloads = {};
   final Set<String> _promotedTrackIds = {};
+  Timer? _prefetchDebounceTimer;
   
+  static HttpClient? _sharedPrefetchClient;
+  static HttpClient get _client => _sharedPrefetchClient ??= HttpClient()
+    ..connectionTimeout = const Duration(seconds: 15)
+    ..idleTimeout = const Duration(seconds: 30)
+    ..maxConnectionsPerHost = 4;
+
   List<Song> _currentQueue = [];
   int _currentIndex = -1;
   Song? _currentlyPlayingSong;
   bool _hasPromotedCurrentSong = false;
   bool isPermanentCacheEnabled = true;
   
-  static const int prefetchWindowCount = 3;
+  static const int prefetchWindowCount = 1;
   static const double promotionThreshold = 0.85;
 
   PlaybackPrefetchManager(this._streamResolver, this._proxy);
@@ -50,18 +52,23 @@ class PlaybackPrefetchManager {
 
     final upcomingSongIds = <String>[];
     if (currentIndex >= 0 && currentIndex < queue.length) {
-      final end = (currentIndex + 1 + prefetchWindowCount).clamp(0, queue.length);
-      for (int i = currentIndex + 1; i < end; i++) {
-        upcomingSongIds.add(queue[i].id);
+      final nextIndex = currentIndex + 1;
+      if (nextIndex < queue.length) {
+        upcomingSongIds.add(queue[nextIndex].id);
       }
     }
 
     _cancelUnneededDownloads(upcomingSongIds);
     await _purgeObsoletePrefetchFiles(upcomingSongIds);
-    await _startPrefetchForSongs(queue, currentIndex, upcomingSongIds);
+    
+    _prefetchDebounceTimer?.cancel();
+    if (upcomingSongIds.isNotEmpty) {
+      _prefetchDebounceTimer = Timer(const Duration(milliseconds: 600), () {
+        _startPrefetchForSongs(queue, currentIndex, upcomingSongIds);
+      });
+    }
   }
 
-  /// Monitor playback position for Intelligent Cache Promotion (85% threshold).
   Future<void> onPositionUpdate(Song? currentSong, Duration position) async {
     if (!isPermanentCacheEnabled) return;
     if (currentSong == null || currentSong.duration.inMilliseconds <= 0) return;
@@ -74,7 +81,6 @@ class PlaybackPrefetchManager {
     }
   }
 
-  /// Promote a song from temporary prefetch buffer to permanent cache (da_tunes_cache).
   Future<void> promoteToCache(String songId) async {
     if (!isPermanentCacheEnabled) {
       DALogger.info('PlaybackPrefetchManager: Permanent cache is disabled. Skipping promotion for "$songId".');
@@ -152,6 +158,7 @@ class PlaybackPrefetchManager {
   }
 
   Future<void> _startPrefetchForSongs(List<Song> queue, int currentIndex, List<String> upcomingIds) async {
+    if (upcomingIds.isEmpty || _activeDownloads.isNotEmpty) return;
     final tempDir = await getTemporaryDirectory();
     final prefetchDir = Directory(p.join(tempDir.path, 'da_tunes_prefetch'));
     if (!await prefetchDir.exists()) {
@@ -159,18 +166,17 @@ class PlaybackPrefetchManager {
     }
     final cacheDir = Directory(p.join(tempDir.path, 'da_tunes_cache'));
 
-    for (final songId in upcomingIds) {
-      if (_activeDownloads.containsKey(songId)) continue;
+    final songId = upcomingIds.first;
+    if (_activeDownloads.containsKey(songId)) return;
 
-      final cachedFile = File(p.join(cacheDir.path, '$songId.mp3'));
-      if (await cachedFile.exists()) continue;
+    final cachedFile = File(p.join(cacheDir.path, '$songId.mp3'));
+    if (await cachedFile.exists()) return;
 
-      final prefetchedFile = File(p.join(prefetchDir.path, '$songId.prefetch'));
-      if (await prefetchedFile.exists()) continue;
+    final prefetchedFile = File(p.join(prefetchDir.path, '$songId.prefetch'));
+    if (await prefetchedFile.exists()) return;
 
-      final song = queue.firstWhere((s) => s.id == songId, orElse: () => queue[0]);
-      _downloadPrefetchTask(song, prefetchDir);
-    }
+    final song = queue.firstWhere((s) => s.id == songId, orElse: () => queue[0]);
+    _downloadPrefetchTask(song, prefetchDir);
   }
 
   Future<void> _downloadPrefetchTask(Song song, Directory prefetchDir) async {
@@ -178,7 +184,7 @@ class PlaybackPrefetchManager {
     try {
       DALogger.info('PlaybackPrefetchManager: Starting background prefetch for "${song.title}" ($songId)');
       
-      final stream = await _streamResolver.resolve(
+      final stream = await _streamResolver.resolvePrefetch(
         trackId: songId,
         providerId: song.source,
         songTitle: song.title,
@@ -190,25 +196,19 @@ class PlaybackPrefetchManager {
           ? Uri.parse(stream.streamUrl).queryParameters['url'] ?? stream.streamUrl
           : stream.streamUrl;
 
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 15);
-      final req = await client.getUrl(Uri.parse(targetUrl));
+      final req = await _client.getUrl(Uri.parse(targetUrl));
       _activeDownloads[songId] = req;
 
       stream.headers.forEach((k, v) => req.headers.set(k, v));
-      req.headers.set(
-        'User-Agent',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      );
+      req.headers.set('User-Agent', NetworkIdentity.platformUserAgent);
 
       final res = await req.close();
       if (res.statusCode != 200 && res.statusCode != 206) {
         _activeDownloads.remove(songId);
-        client.close();
         return;
       }
 
-      final tmpFile = File(p.join(prefetchDir.path, '$songId.tmp'));
+      final tmpFile = File(p.join(prefetchDir.path, '$songId.prefetch.tmp'));
       final targetFile = File(p.join(prefetchDir.path, '$songId.prefetch'));
       if (tmpFile.existsSync()) tmpFile.deleteSync();
 
@@ -232,6 +232,12 @@ class PlaybackPrefetchManager {
       DALogger.warning('PlaybackPrefetchManager: Prefetch failed for "$songId": $e');
     } finally {
       _activeDownloads.remove(songId);
+      final tmpFile = File(p.join(prefetchDir.path, '$songId.prefetch.tmp'));
+      if (tmpFile.existsSync() && !File(p.join(prefetchDir.path, '$songId.prefetch')).existsSync()) {
+        try {
+          tmpFile.deleteSync();
+        } catch (_) {}
+      }
     }
   }
 
@@ -240,13 +246,8 @@ class PlaybackPrefetchManager {
       final artFile = File(p.join(prefetchDir.path, '$songId.jpg'));
       if (artFile.existsSync()) return;
 
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 10);
-      final req = await client.getUrl(Uri.parse(artworkUrl));
-      req.headers.set(
-        'User-Agent',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      );
+      final req = await _client.getUrl(Uri.parse(artworkUrl));
+      req.headers.set('User-Agent', NetworkIdentity.platformUserAgent);
       final res = await req.close();
       if (res.statusCode == 200) {
         final tmpArt = File(p.join(prefetchDir.path, '$songId.art.tmp'));
@@ -256,13 +257,13 @@ class PlaybackPrefetchManager {
         await tmpArt.rename(artFile.path);
         DALogger.info('PlaybackPrefetchManager: Saved prefetched artwork for "$songId".');
       }
-      client.close();
     } catch (e) {
       DALogger.warning('PlaybackPrefetchManager: Failed to prefetch artwork for "$songId": $e');
     }
   }
 
   void dispose() {
+    _prefetchDebounceTimer?.cancel();
     for (final req in _activeDownloads.values) {
       req.abort();
     }

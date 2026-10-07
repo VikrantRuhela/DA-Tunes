@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/widgets.dart' show BuildContext;
+import 'package:go_router/go_router.dart';
+import '../../app/router/router.dart';
 import '../../core/services/playback_controller.dart';
 import '../../core/services/storage_service.dart';
 import '../models/music_models.dart';
@@ -9,6 +12,107 @@ import 'library_providers.dart';
 import 'theme_providers.dart';
 
 final immersiveModeProvider = StateProvider<bool>((ref) => false);
+final restoreImmersiveOnCloseProvider = StateProvider<bool>((ref) => false);
+
+enum PlayerPanelType {
+  none,
+  queue,
+  lyrics,
+}
+
+final activePlayerPanelProvider = StateProvider<PlayerPanelType>((ref) => PlayerPanelType.none);
+
+class PlayerPanelController {
+  static DateTime _lastToggle = DateTime.fromMillisecondsSinceEpoch(0);
+
+  static void toggleQueue(BuildContext context, WidgetRef ref) {
+    final now = DateTime.now();
+    if (now.difference(_lastToggle).inMilliseconds < 250) return;
+    _lastToggle = now;
+
+    final currentPanel = ref.read(activePlayerPanelProvider);
+    String currentPath = '';
+    try {
+      currentPath = GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
+    } catch (_) {}
+
+    final isAlreadyQueue = currentPanel == PlayerPanelType.queue || currentPath == '/queue';
+
+    if (isAlreadyQueue) {
+      closeCurrentPanel(context, ref);
+      return;
+    }
+
+    final isAlreadyLyrics = currentPanel == PlayerPanelType.lyrics || currentPath == '/lyrics';
+    if (isAlreadyLyrics) {
+      ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.queue;
+      context.pushReplacement('/queue');
+      return;
+    }
+
+    final isImmersive = ref.read(immersiveModeProvider);
+    if (isImmersive) {
+      ref.read(restoreImmersiveOnCloseProvider.notifier).state = true;
+      ref.read(immersiveModeProvider.notifier).state = false;
+    }
+
+    ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.queue;
+    context.push('/queue');
+  }
+
+  static void toggleLyrics(BuildContext context, WidgetRef ref) {
+    final now = DateTime.now();
+    if (now.difference(_lastToggle).inMilliseconds < 250) return;
+    _lastToggle = now;
+
+    final currentPanel = ref.read(activePlayerPanelProvider);
+    String currentPath = '';
+    try {
+      currentPath = GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
+    } catch (_) {}
+
+    final isAlreadyLyrics = currentPanel == PlayerPanelType.lyrics || currentPath == '/lyrics';
+
+    if (isAlreadyLyrics) {
+      closeCurrentPanel(context, ref);
+      return;
+    }
+
+    final isAlreadyQueue = currentPanel == PlayerPanelType.queue || currentPath == '/queue';
+    if (isAlreadyQueue) {
+      ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.lyrics;
+      context.pushReplacement('/lyrics');
+      return;
+    }
+
+    final isImmersive = ref.read(immersiveModeProvider);
+    if (isImmersive) {
+      ref.read(restoreImmersiveOnCloseProvider.notifier).state = true;
+      ref.read(immersiveModeProvider.notifier).state = false;
+    }
+
+    ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.lyrics;
+    context.push('/lyrics');
+  }
+
+  static void closeCurrentPanel(BuildContext context, WidgetRef ref) {
+    ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.none;
+
+    final shouldRestoreImmersive = ref.read(restoreImmersiveOnCloseProvider);
+    if (shouldRestoreImmersive) {
+      ref.read(immersiveModeProvider.notifier).state = true;
+      ref.read(restoreImmersiveOnCloseProvider.notifier).state = false;
+    }
+
+    if (shellNavigatorKey.currentState != null && shellNavigatorKey.currentState!.canPop()) {
+      shellNavigatorKey.currentState!.pop();
+    } else if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/');
+    }
+  }
+}
 
 final playbackControllerProvider = ChangeNotifierProvider<PlaybackController>((ref) {
   final engine = ref.watch(playbackEngineProvider);

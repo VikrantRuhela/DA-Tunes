@@ -620,7 +620,7 @@ class _PlaybackIconButtonState extends State<_PlaybackIconButton> {
         onTapCancel: () => setState(() => _isPressed = false),
         onTap: widget.onPressed,
         child: AnimatedScale(
-          scale: _isPressed ? 0.92 : (_isHovered ? 1.08 : 1.0),
+          scale: _isPressed ? 0.98 : (_isHovered ? 1.02 : 1.0),
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeOutCubic,
           child: AnimatedContainer(
@@ -686,7 +686,7 @@ class _ImmersivePlaybackButtonState extends State<ImmersivePlaybackButton> {
         },
         onTap: widget.onPressed,
         child: AnimatedScale(
-          scale: _isPressed ? 0.90 : (_isHovered ? 1.05 : 1.0),
+          scale: _isPressed ? 0.98 : (_isHovered ? 1.02 : 1.0),
           duration: const Duration(milliseconds: 100),
           child: AnimatedOpacity(
             opacity: isInteractive ? (_isHovered ? 1.0 : 0.8) : 0.35,
@@ -1484,17 +1484,11 @@ class _ImmersiveStylePlayerState extends ConsumerState<_ImmersiveStylePlayer> wi
                         children: [
                           IconButton(
                             icon: const Icon(Icons.queue_music, color: Colors.white60, size: 24.0),
-                            onPressed: () {
-                              ref.read(immersiveModeProvider.notifier).state = false;
-                              context.push('/queue');
-                            },
+                            onPressed: () => PlayerPanelController.toggleQueue(context, ref),
                           ),
                           IconButton(
                             icon: const Icon(Icons.chat_bubble_outline, color: Colors.white60, size: 24.0),
-                            onPressed: () {
-                              ref.read(immersiveModeProvider.notifier).state = false;
-                              context.push('/lyrics');
-                            },
+                            onPressed: () => PlayerPanelController.toggleLyrics(context, ref),
                           ),
                           Builder(
                             builder: (context) {
@@ -1760,18 +1754,12 @@ class _MinimalStylePlayerState extends ConsumerState<_MinimalStylePlayer> {
                   IconButton(
                     icon: Icon(Icons.queue_music, color: colors.textSecondary, size: 24.0),
                     tooltip: 'Queue',
-                    onPressed: () {
-                      ref.read(immersiveModeProvider.notifier).state = false;
-                      context.push('/queue');
-                    },
+                    onPressed: () => PlayerPanelController.toggleQueue(context, ref),
                   ),
                   IconButton(
                     icon: Icon(Icons.chat_bubble_outline, color: colors.textSecondary, size: 24.0),
                     tooltip: 'Lyrics',
-                    onPressed: () {
-                      ref.read(immersiveModeProvider.notifier).state = false;
-                      context.push('/lyrics');
-                    },
+                    onPressed: () => PlayerPanelController.toggleLyrics(context, ref),
                   ),
                   Builder(
                     builder: (context) {
@@ -1834,20 +1822,14 @@ class _ImmersiveActionRow extends ConsumerWidget {
             color: colors.textSecondary,
             iconSize: 24.0,
             tooltip: 'Queue',
-            onPressed: () {
-              ref.read(immersiveModeProvider.notifier).state = false;
-              context.push('/queue');
-            },
+            onPressed: () => PlayerPanelController.toggleQueue(context, ref),
           ),
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline),
             color: colors.textSecondary,
             iconSize: 24.0,
             tooltip: 'Lyrics',
-            onPressed: () {
-              ref.read(immersiveModeProvider.notifier).state = false;
-              context.push('/lyrics');
-            },
+            onPressed: () => PlayerPanelController.toggleLyrics(context, ref),
           ),
           const _AudioVisualizer(),
           IconButton(
@@ -2835,18 +2817,12 @@ class _Material3PlayerState extends ConsumerState<Material3Player> {
                         IconButton(
                           icon: Icon(Icons.queue_music_outlined, color: colorScheme.onSurfaceVariant, size: 24.0),
                           tooltip: 'Queue',
-                          onPressed: () {
-                            ref.read(immersiveModeProvider.notifier).state = false;
-                            context.push('/queue');
-                          },
+                          onPressed: () => PlayerPanelController.toggleQueue(context, ref),
                         ),
                         IconButton(
                           icon: Icon(Icons.chat_bubble_outline, color: colorScheme.onSurfaceVariant, size: 24.0),
                           tooltip: 'Lyrics',
-                          onPressed: () {
-                            ref.read(immersiveModeProvider.notifier).state = false;
-                            context.push('/lyrics');
-                          },
+                          onPressed: () => PlayerPanelController.toggleLyrics(context, ref),
                         ),
                         Consumer(
                           builder: (context, ref, child) {

@@ -15,6 +15,7 @@ import '../../../../../core/services/device_memory_manager.dart';
 import 'immersive_player.dart';
 import '../../../../../shared/providers/theme_providers.dart';
 import '../../../../../shared/widgets/m3_play_pause_button.dart';
+import '../../../../../shared/animations/motion_system.dart';
 
 class _RoundedTrackShape extends SliderTrackShape {
   const _RoundedTrackShape();
@@ -178,12 +179,12 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 450),
+      duration: DAMotion.playerDuration,
     );
     _animation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      curve: DAMotion.enterCurve,
+      reverseCurve: DAMotion.exitCurve,
     )..addListener(_onAnimationTick);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -305,15 +306,15 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
         canPop: !isImmersive,
         onPopInvokedWithResult: (didPop, result) {
           if (!didPop && isImmersive) {
-            _controller.animateTo(0.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic).then((_) {
+            _controller.animateTo(0.0, duration: DAMotion.playerDuration, curve: DAMotion.exitCurve).then((_) {
               ref.read(immersiveModeProvider.notifier).state = false;
             });
           }
         },
         child: AnimatedSlide(
           offset: isLandscape ? const Offset(0, 1.5) : Offset.zero,
-          duration: const Duration(milliseconds: 380),
-          curve: Curves.fastOutSlowIn,
+          duration: DAMotion.playerDuration,
+          curve: isImmersive ? DAMotion.enterCurve : DAMotion.exitCurve,
           child: GestureDetector(
               onVerticalDragUpdate: (details) {
                 final delta = details.primaryDelta ?? 0.0;
@@ -323,11 +324,11 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
                 final velocity = details.primaryVelocity ?? 0.0;
                 final shouldClose = velocity > 300 || (velocity >= -300 && _controller.value < 0.6);
                 if (shouldClose) {
-                  _controller.animateTo(0.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic).then((_) {
+                  _controller.animateTo(0.0, duration: DAMotion.playerDuration, curve: DAMotion.exitCurve).then((_) {
                     ref.read(immersiveModeProvider.notifier).state = false;
                   });
                 } else {
-                  _controller.animateTo(1.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic).then((_) {
+                  _controller.animateTo(1.0, duration: DAMotion.playerDuration, curve: DAMotion.enterCurve).then((_) {
                     ref.read(immersiveModeProvider.notifier).state = true;
                   });
                 }
@@ -746,17 +747,11 @@ class _AndroidSlidingPlayerState extends ConsumerState<AndroidSlidingPlayer> wit
             children: [
               IconButton(
                 icon: const Icon(Icons.queue_music, color: Colors.white60, size: 24.0),
-                onPressed: () {
-                  ref.read(immersiveModeProvider.notifier).state = false;
-                  context.push('/queue');
-                },
+                onPressed: () => PlayerPanelController.toggleQueue(context, ref),
               ),
               IconButton(
                 icon: const Icon(Icons.chat_bubble_outline, color: Colors.white60, size: 24.0),
-                onPressed: () {
-                  ref.read(immersiveModeProvider.notifier).state = false;
-                  context.push('/lyrics');
-                },
+                onPressed: () => PlayerPanelController.toggleLyrics(context, ref),
               ),
               Builder(
                 builder: (context) {

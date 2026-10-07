@@ -13,6 +13,8 @@ import '../../shared/animations/motion_system.dart';
 import 'custom_title_bar.dart';
 import '../../features/player/presentation/widgets/mini_player.dart';
 import '../../features/player/presentation/widgets/player_panel.dart';
+import '../../features/player/presentation/widgets/player_background.dart';
+import '../../features/player/presentation/widgets/immersive/immersive_player.dart';
 import '../../features/home/presentation/widgets/navigation_rail.dart';
 import '../../features/player/presentation/widgets/immersive/android_sliding_player.dart';
 import 'ambient_background.dart';
@@ -83,8 +85,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     final bool showNavRail = isLandscape || screenWidth >= 700;
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    final duration = ref.scaledDuration(isImmersive ? DAMotion.large : const Duration(milliseconds: 380));
-    final curve = ref.scaledCurve(DAMotion.fastOutSlowIn);
+    final duration = ref.scaledDuration(DAMotion.playerDuration);
+    final curve = isImmersive ? ref.scaledCurve(DAMotion.enterCurve) : ref.scaledCurve(DAMotion.exitCurve);
 
     final containerBorderRadius = (isImmersive || isM3)
         ? BorderRadius.zero
@@ -141,100 +143,120 @@ class _AppShellState extends ConsumerState<AppShell> {
                   children: [
                     const CustomTitleBar(),
                     Expanded(
-                      child: Row(
+                      child: Stack(
                         children: [
-                          _DesktopNavRail(visible: showNavRail),
-                          Expanded(
-                            child: AnimatedOpacity(
-                              opacity: isImmersive ? 0.0 : 1.0,
-                              duration: duration,
-                              curve: curve,
-                              child: AnimatedContainer(
-                                duration: duration,
-                                curve: curve,
-                                margin: containerMargin,
-                                child: ClipRRect(
-                                  borderRadius: containerBorderRadius,
-                                  child: Stack(
-                                    children: [
-                                      Positioned.fill(
-                                        child: (showAlbumArt && !isM3)
-                                            ? ClipRect(
-                                                child: BackdropFilter(
-                                                  filter: ImageFilter.blur(
-                                                    sigmaX: isLowRam ? 16.0 : 25.0,
-                                                    sigmaY: isLowRam ? 16.0 : 25.0,
-                                                  ),
-                                                  child: Container(
-                                                    decoration: BoxDecoration(
-                                                      color: isImmersive ? Colors.transparent : colors.background.withValues(alpha: 0.50),
-                                                      borderRadius: containerBorderRadius,
-                                                      border: Border.all(
-                                                        color: (isImmersive || isM3) ? Colors.transparent : colors.border.withValues(alpha: 0.4),
-                                                        width: (isImmersive || isM3) ? 0.0 : 1.0,
+                          Positioned.fill(
+                            child: Row(
+                              children: [
+                                _DesktopNavRail(visible: showNavRail),
+                                Expanded(
+                                  child: AnimatedOpacity(
+                                    opacity: (showPlayerPanel && isImmersive) ? 0.0 : 1.0,
+                                    duration: duration,
+                                    curve: curve,
+                                    child: AnimatedContainer(
+                                      duration: duration,
+                                      curve: curve,
+                                      margin: containerMargin,
+                                      child: ClipRRect(
+                                        borderRadius: containerBorderRadius,
+                                        child: Stack(
+                                          children: [
+                                            Positioned.fill(
+                                              child: (showAlbumArt && !isM3)
+                                                  ? ClipRect(
+                                                      child: BackdropFilter(
+                                                        filter: ImageFilter.blur(
+                                                          sigmaX: isLowRam ? 16.0 : 25.0,
+                                                          sigmaY: isLowRam ? 16.0 : 25.0,
+                                                        ),
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            color: (showPlayerPanel && isImmersive) ? Colors.transparent : colors.background.withValues(alpha: 0.50),
+                                                            borderRadius: containerBorderRadius,
+                                                            border: Border.all(
+                                                              color: (isImmersive || isM3) ? Colors.transparent : colors.border.withValues(alpha: 0.4),
+                                                              width: (isImmersive || isM3) ? 0.0 : 1.0,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : Container(
+                                                      decoration: BoxDecoration(
+                                                        color: (showPlayerPanel && isImmersive) ? Colors.transparent : colors.background,
+                                                        borderRadius: containerBorderRadius,
+                                                        border: Border.all(
+                                                          color: (isImmersive || isM3) ? Colors.transparent : colors.border.withValues(alpha: 0.4),
+                                                          width: (isImmersive || isM3) ? 0.0 : 1.0,
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                ),
-                                              )
-                                            : Container(
-                                                decoration: BoxDecoration(
-                                                  color: isImmersive ? Colors.transparent : colors.background,
-                                                  borderRadius: containerBorderRadius,
-                                                  border: Border.all(
-                                                    color: (isImmersive || isM3) ? Colors.transparent : colors.border.withValues(alpha: 0.4),
-                                                    width: (isImmersive || isM3) ? 0.0 : 1.0,
-                                                  ),
+                                            ),
+                                            Positioned.fill(
+                                              child: IgnorePointer(
+                                                ignoring: isImmersive,
+                                                child: Stack(
+                                                  children: [
+                                                    Padding(
+                                                      padding: EdgeInsets.only(
+                                                        bottom: ((isLandscape || !isAndroid) && !showPlayerPanel && ref.watch(currentSongProvider) != null ? 80.0 : 0.0),
+                                                      ),
+                                                      child: widget.child,
+                                                    ),
+                                                    if ((isLandscape || !isAndroid) && !showPlayerPanel)
+                                                      const Align(
+                                                        alignment: Alignment.bottomCenter,
+                                                        child: MiniPlayer(),
+                                                      ),
+                                                  ],
                                                 ),
                                               ),
-                                      ),
-                                      Positioned.fill(
-                                        child: IgnorePointer(
-                                          ignoring: isImmersive,
-                                          child: Stack(
-                                            children: [
-                                              Padding(
-                                                padding: EdgeInsets.only(
-                                                  bottom: ((isLandscape || !isAndroid) && !showPlayerPanel && !isImmersive && ref.watch(currentSongProvider) != null ? 80.0 : 0.0),
-                                                ),
-                                                child: widget.child,
-                                              ),
-                                              if ((isLandscape || !isAndroid) && !showPlayerPanel && !isImmersive)
-                                                const Align(
-                                                  alignment: Alignment.bottomCenter,
-                                                  child: MiniPlayer(),
-                                                ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
+                                    ),
+                                  ),
+                                ),
+                                AnimatedContainer(
+                                  duration: duration,
+                                  curve: curve,
+                                  width: (isAndroid && !isLandscape)
+                                      ? 0.0
+                                      : (showPlayerPanel
+                                          ? (isImmersive
+                                              ? screenWidth
+                                              : (screenWidth >= 1200 ? 360.0 : (screenWidth * 0.35).clamp(260.0, 320.0)))
+                                          : 0.0),
+                                  child: ClipRect(
+                                    child: OverflowBox(
+                                      minWidth: isImmersive ? screenWidth : 260.0,
+                                      maxWidth: isImmersive
+                                          ? screenWidth
+                                          : (screenWidth >= 1200 ? 360.0 : (screenWidth * 0.35).clamp(260.0, 320.0)),
+                                      alignment: Alignment.centerRight,
+                                      child: const PersistentPlayerPanel(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if ((!isAndroid || isLandscape) && !showPlayerPanel)
+                            Positioned.fill(
+                              child: AnimatedSlide(
+                                offset: isImmersive ? Offset.zero : const Offset(0.0, 1.0),
+                                duration: duration,
+                                curve: curve,
+                                child: IgnorePointer(
+                                  ignoring: !isImmersive,
+                                  child: const PlayerBackground(
+                                    child: ImmersivePlayer(key: ValueKey('immersive_desktop')),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                          AnimatedContainer(
-                            duration: duration,
-                            curve: curve,
-                            width: (isAndroid && !isLandscape)
-                                ? 0.0
-                                : (isImmersive
-                                    ? screenWidth
-                                    : (showPlayerPanel
-                                        ? (screenWidth >= 1200 ? 360.0 : (screenWidth * 0.35).clamp(260.0, 320.0))
-                                        : 0.0)),
-                            child: ClipRect(
-                              child: OverflowBox(
-                                minWidth: isImmersive ? screenWidth : 260.0,
-                                maxWidth: isImmersive
-                                    ? screenWidth
-                                    : (screenWidth >= 1200 ? 360.0 : (screenWidth * 0.35).clamp(260.0, 320.0)),
-                                alignment: Alignment.centerRight,
-                                child: PersistentPlayerPanel(),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -242,7 +264,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 ),
               ),
               if (isAndroid) ...[
-                const AndroidSlidingPlayer(),
+                if (!isLandscape) const AndroidSlidingPlayer(),
                 AnimatedSlide(
                   offset: (isLandscape || isImmersive) ? const Offset(0, 1.5) : Offset.zero,
                   duration: duration,
@@ -273,8 +295,8 @@ class _DesktopNavRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isImmersive = ref.watch(immersiveModeProvider);
-    final duration = ref.scaledDuration(isImmersive ? DAMotion.large : const Duration(milliseconds: 380));
-    final curve = ref.scaledCurve(DAMotion.fastOutSlowIn);
+    final duration = ref.scaledDuration(DAMotion.playerDuration);
+    final curve = isImmersive ? ref.scaledCurve(DAMotion.exitCurve) : ref.scaledCurve(DAMotion.enterCurve);
 
     return AnimatedContainer(
       duration: duration,

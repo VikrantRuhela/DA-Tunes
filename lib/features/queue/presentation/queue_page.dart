@@ -9,11 +9,34 @@ import '../../../shared/utils/song_options.dart';
 import '../../../shared/models/music_models.dart';
 import '../../../shared/widgets/da_image.dart';
 
-class QueuePage extends ConsumerWidget {
+class QueuePage extends ConsumerStatefulWidget {
   const QueuePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<QueuePage> createState() => _QueuePageState();
+}
+
+class _QueuePageState extends ConsumerState<QueuePage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.queue;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    if (ref.read(activePlayerPanelProvider) == PlayerPanelType.queue) {
+      ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.none;
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.daColors;
     final typography = context.daTypography;
 
@@ -25,7 +48,13 @@ class QueuePage extends ConsumerWidget {
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
-          ref.read(immersiveModeProvider.notifier).state = true;
+          if (ref.read(activePlayerPanelProvider) == PlayerPanelType.queue) {
+            ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.none;
+            if (ref.read(restoreImmersiveOnCloseProvider)) {
+              ref.read(immersiveModeProvider.notifier).state = true;
+              ref.read(restoreImmersiveOnCloseProvider.notifier).state = false;
+            }
+          }
         }
       },
       child: Scaffold(

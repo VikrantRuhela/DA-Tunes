@@ -267,7 +267,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
+        duration: ref.scaledDuration(DAMotion.standard),
+        switchInCurve: ref.scaledCurve(DAMotion.enterCurve),
+        switchOutCurve: ref.scaledCurve(DAMotion.exitCurve),
         child: sectionsAsync.when(
           loading: () => const _HomeSkeletonLoader(key: ValueKey('loading')),
           error: (err, stack) => Center(
