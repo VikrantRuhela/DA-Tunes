@@ -11,6 +11,8 @@ import '../../../shared/widgets/da_empty_state.dart';
 import '../../../shared/widgets/da_image.dart';
 import '../../../core/services/device_memory_manager.dart';
 import '../../../shared/providers/library_providers.dart';
+import '../../../shared/providers/theme_providers.dart';
+import '../../../shared/animations/motion_system.dart';
 
 final lyricsActiveIndexProvider = Provider<int>((ref) {
   final position = ref.watch(playbackControllerProvider.select((c) => c.position));
@@ -60,6 +62,10 @@ class LyricLineWidget extends ConsumerWidget {
     final double targetBlur = (isActive || isLowRam) ? 0.0 : (distanceFromActive.toDouble() * 1.5).clamp(0.0, 8.0);
     final double targetOpacity = isActive ? 1.0 : (0.45 / distanceFromActive).clamp(0.12, 0.45);
 
+    final isM3 = ref.watch(appThemeModeProvider) == AppThemeMode.material3;
+    final isLightM3 = isM3 && ref.watch(m3ThemeModeProvider) == M3ThemeMode.light;
+    final lyricColor = isLightM3 ? Theme.of(context).colorScheme.primary : Colors.white;
+
     return TweenAnimationBuilder<double>(
       duration: const Duration(milliseconds: 350),
       curve: Curves.easeOutCubic,
@@ -76,12 +82,12 @@ class LyricLineWidget extends ConsumerWidget {
                 fontFamily: 'Outfit',
                 fontSize: isActive ? 25.0 : 20.0,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
-                color: Colors.white,
+                color: lyricColor,
                 height: 1.4,
                 shadows: isActive
                     ? [
                         Shadow(
-                          color: colors.primary.withValues(alpha: 0.5),
+                          color: (isLightM3 ? Theme.of(context).colorScheme.primary : colors.primary).withValues(alpha: 0.5),
                           blurRadius: 10.0,
                         ),
                       ]
@@ -160,11 +166,34 @@ class LyricLineWidget extends ConsumerWidget {
   }
 }
 
-class LyricsPage extends ConsumerWidget {
+class LyricsPage extends ConsumerStatefulWidget {
   const LyricsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LyricsPage> createState() => _LyricsPageState();
+}
+
+class _LyricsPageState extends ConsumerState<LyricsPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.lyrics;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    if (ref.read(activePlayerPanelProvider) == PlayerPanelType.lyrics) {
+      ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.none;
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.daColors;
     final typography = context.daTypography;
 
@@ -176,7 +205,13 @@ class LyricsPage extends ConsumerWidget {
         canPop: true,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) {
-            ref.read(immersiveModeProvider.notifier).state = true;
+            if (ref.read(activePlayerPanelProvider) == PlayerPanelType.lyrics) {
+              ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.none;
+              if (ref.read(restoreImmersiveOnCloseProvider)) {
+                ref.read(immersiveModeProvider.notifier).state = true;
+                ref.read(restoreImmersiveOnCloseProvider.notifier).state = false;
+              }
+            }
           }
         },
         child: Scaffold(
@@ -213,43 +248,106 @@ class LyricsPage extends ConsumerWidget {
 
     final artworkUrl = currentSong.artworkUrl ?? '';
 
+    final themeMode = ref.watch(appThemeModeProvider);
+    final isAmoled = themeMode == AppThemeMode.amoled;
+    final isM3 = themeMode == AppThemeMode.material3;
+    final m3Mode = ref.watch(m3ThemeModeProvider);
+    final isLightM3 = isM3 && m3Mode == M3ThemeMode.light;
+    final isDarkM3 = isM3 && m3Mode == M3ThemeMode.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    Widget backgroundWidget;
+    if (isAmoled) {
+      backgroundWidget = Container(color: Colors.black);
+    } else if (isLightM3) {
+      backgroundWidget = Stack(
+        children: [
+          Positioned.fill(
+            child: DAImage(
+              url: artworkUrl,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 45.0, sigmaY: 45.0),
+              child: Container(
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (isDarkM3) {
+      backgroundWidget = Stack(
+        children: [
+          Positioned.fill(
+            child: DAImage(
+              url: artworkUrl,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 45.0, sigmaY: 45.0),
+              child: Container(
+                color: colorScheme.surface.withValues(alpha: 0.82),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.25),
+            ),
+          ),
+        ],
+      );
+    } else {
+      backgroundWidget = Stack(
+        children: [
+          Positioned.fill(
+            child: DAImage(
+              url: artworkUrl,
+              fit: BoxFit.cover,
+              placeholder: Container(color: colors.surface),
+            ),
+          ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: DeviceMemoryManager.instance.getRecommendedBlurSigma(45.0),
+                sigmaY: DeviceMemoryManager.instance.getRecommendedBlurSigma(45.0),
+              ),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.44),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final Color headerTextColor = isLightM3 ? colorScheme.onSurface : Colors.white;
+    final Color headerSubtextColor = isLightM3 ? colorScheme.onSurfaceVariant : Colors.white.withValues(alpha: 0.7);
+    final Color backIconColor = isLightM3 ? colorScheme.onSurface : Colors.white;
+
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
-          ref.read(immersiveModeProvider.notifier).state = true;
+          if (ref.read(activePlayerPanelProvider) == PlayerPanelType.lyrics) {
+            ref.read(activePlayerPanelProvider.notifier).state = PlayerPanelType.none;
+            if (ref.read(restoreImmersiveOnCloseProvider)) {
+              ref.read(immersiveModeProvider.notifier).state = true;
+              ref.read(restoreImmersiveOnCloseProvider.notifier).state = false;
+            }
+          }
         }
       },
       child: Scaffold(
         body: Stack(
           children: [
-            Positioned.fill(
-              child: DAImage(
-                url: artworkUrl,
-                fit: BoxFit.cover,
-                placeholder: Container(color: colors.surface),
-              ),
-            ),
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: DeviceMemoryManager.instance.getRecommendedBlurSigma(45.0),
-                  sigmaY: DeviceMemoryManager.instance.getRecommendedBlurSigma(45.0),
-                ),
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.44),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ColorFilter.mode(
-                  Colors.black.withValues(alpha: 0.10),
-                  BlendMode.darken,
-                ),
-                child: const SizedBox(),
-              ),
-            ),
+            Positioned.fill(child: backgroundWidget),
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -262,7 +360,7 @@ class LyricsPage extends ConsumerWidget {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.keyboard_arrow_down, size: 32.0),
-                            color: Colors.white,
+                            color: backIconColor,
                             onPressed: () => context.pop(),
                           ),
                           const SizedBox(width: DATokens.spacingSmall),
@@ -273,7 +371,7 @@ class LyricsPage extends ConsumerWidget {
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,
-                              placeholder: const Icon(Icons.music_note, color: Colors.white),
+                              placeholder: Icon(Icons.music_note, color: backIconColor),
                             ),
                           ),
                           const SizedBox(width: DATokens.spacingMedium),
@@ -284,7 +382,7 @@ class LyricsPage extends ConsumerWidget {
                                 Text(
                                   currentSong.title,
                                   style: typography.body.copyWith(
-                                    color: Colors.white,
+                                    color: headerTextColor,
                                     fontWeight: FontWeight.bold,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -292,7 +390,7 @@ class LyricsPage extends ConsumerWidget {
                                 Text(
                                   currentSong.artist,
                                   style: typography.caption.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.7),
+                                    color: headerSubtextColor,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -302,7 +400,7 @@ class LyricsPage extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    const Divider(color: Colors.white10, height: 1.0),
+                    Divider(color: isLightM3 ? colorScheme.outlineVariant : Colors.white10, height: 1.0),
                     const SizedBox(height: 16.0),
                     Expanded(
                       child: _LyricsGlassContainer(
@@ -509,38 +607,84 @@ class _LyricsGlassContainerState extends ConsumerState<_LyricsGlassContainer> {
       );
     }
 
+    final themeMode = ref.watch(appThemeModeProvider);
+    final isAmoled = themeMode == AppThemeMode.amoled;
+    final isM3 = themeMode == AppThemeMode.material3;
+    final m3Mode = ref.watch(m3ThemeModeProvider);
+    final isLightM3 = isM3 && m3Mode == M3ThemeMode.light;
+    final isDarkM3 = isM3 && m3Mode == M3ThemeMode.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    BoxDecoration containerDecoration;
+    if (isAmoled) {
+      containerDecoration = BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(24.0),
+        border: Border.all(
+          color: Colors.white30,
+          width: 1.0,
+        ),
+      );
+    } else if (isLightM3) {
+      containerDecoration = BoxDecoration(
+        color: colorScheme.surfaceContainer.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(24.0),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          width: 1.0,
+        ),
+      );
+    } else if (isDarkM3) {
+      containerDecoration = BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.50),
+        borderRadius: BorderRadius.circular(24.0),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1.0,
+        ),
+      );
+    } else {
+      containerDecoration = BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(24.0),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1.0,
+        ),
+      );
+    }
+
+    Widget contentBody = AnimatedSwitcher(
+      duration: ref.scaledDuration(DAMotion.standard),
+      switchInCurve: ref.scaledCurve(DAMotion.enterCurve),
+      switchOutCurve: ref.scaledCurve(DAMotion.exitCurve),
+      child: KeyedSubtree(
+        key: ValueKey<String>('${widget.songId}_${lyricsState.isLoading}'),
+        child: innerContent,
+      ),
+    );
+
     return Stack(
       children: [
         Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
-              width: 1.0,
-            ),
-          ),
+          decoration: containerDecoration,
           clipBehavior: Clip.antiAlias,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: DeviceMemoryManager.instance.getRecommendedBlurSigma(20.0),
-              sigmaY: DeviceMemoryManager.instance.getRecommendedBlurSigma(20.0),
-            ),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: KeyedSubtree(
-                key: ValueKey<String>('${widget.songId}_${lyricsState.isLoading}'),
-                child: innerContent,
-              ),
-            ),
-          ),
+          child: isAmoled
+              ? contentBody
+              : BackdropFilter(
+                  filter: ImageFilter.blur(
+                    sigmaX: DeviceMemoryManager.instance.getRecommendedBlurSigma(20.0),
+                    sigmaY: DeviceMemoryManager.instance.getRecommendedBlurSigma(20.0),
+                  ),
+                  child: contentBody,
+                ),
         ),
         if (_isUserScrolling && widget.timestamps.isNotEmpty)
           Positioned(
             bottom: 30,
             right: 30,
             child: FloatingActionButton.extended(
-              backgroundColor: colors.primary,
+              backgroundColor: isM3 ? colorScheme.primary : colors.primary,
               onPressed: () {
                 setState(() {
                   _isUserScrolling = false;
@@ -549,10 +693,10 @@ class _LyricsGlassContainerState extends ConsumerState<_LyricsGlassContainer> {
                   _scrollToActiveLine(activeIndex);
                 }
               },
-              icon: const Icon(Icons.sync, color: Colors.white),
-              label: const Text(
+              icon: Icon(Icons.sync, color: isM3 ? colorScheme.onPrimary : Colors.white),
+              label: Text(
                 'Sync View',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(color: isM3 ? colorScheme.onPrimary : Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ),

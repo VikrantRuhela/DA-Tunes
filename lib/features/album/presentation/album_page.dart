@@ -83,34 +83,101 @@ class AlbumPage extends ConsumerWidget {
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(DATokens.spacingLarge),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12.0),
-                  child: DAImage(
-                    url: album.cover.url,
-                    width: 180.0,
-                    height: 180.0,
-                    fit: BoxFit.cover,
-                    placeholder: Container(
-                      width: 180.0,
-                      height: 180.0,
-                      color: colors.surfaceHover,
-                      child: Icon(Icons.music_note, size: 64.0, color: colors.textSecondary),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: DATokens.spacingLarge),
-                Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 520.0;
+              final double artSize = isCompact ? 160.0 : 180.0;
+
+              final actionButtons = songs.isNotEmpty
+                  ? FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: isCompact ? MainAxisAlignment.center : MainAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              final modelSongs = songs.map((s) => shared.Song(
+                                id: s.id,
+                                title: s.title,
+                                artist: s.artistId == 'Unknown Artist' ? album.artistId : s.artistId,
+                                album: album.title,
+                                duration: s.duration.value,
+                                artworkUrl: s.artwork.url,
+                                source: s.sourceId,
+                                lyrics: null,
+                              )).toList();
+                              ref.read(playbackControllerProvider).setQueue(modelSongs, autoPlay: true, queueMode: QueueMode.album);
+                            },
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('Play Album'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colors.primary,
+                              foregroundColor: colors.textPrimary,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: DATokens.spacingLarge,
+                                vertical: DATokens.spacingMedium,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: DATokens.spacingSmall),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              final modelSongs = songs.map((s) => shared.Song(
+                                id: s.id,
+                                title: s.title,
+                                artist: s.artistId == 'Unknown Artist' ? album.artistId : s.artistId,
+                                album: album.title,
+                                duration: s.duration.value,
+                                artworkUrl: s.artwork.url,
+                                source: s.sourceId,
+                                lyrics: null,
+                              )).toList();
+                              ref.read(playbackControllerProvider).shufflePlaylist(modelSongs);
+                            },
+                            icon: const Icon(Icons.shuffle),
+                            label: const Text('Shuffle'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colors.textPrimary,
+                              side: BorderSide(color: colors.border),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: DATokens.spacingLarge,
+                                vertical: DATokens.spacingMedium,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink();
+
+              if (isCompact) {
+                return Padding(
+                  padding: const EdgeInsets.all(DATokens.spacingLarge),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Center(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12.0),
+                          child: DAImage(
+                            url: album.cover.url,
+                            width: artSize,
+                            height: artSize,
+                            fit: BoxFit.cover,
+                            placeholder: Container(
+                              width: artSize,
+                              height: artSize,
+                              color: colors.surfaceHover,
+                              child: Icon(Icons.music_note, size: 64.0, color: colors.textSecondary),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: DATokens.spacingMedium),
                       Text(
                         album.title,
-                        style: typography.title.copyWith(fontSize: 28.0),
+                        style: typography.title.copyWith(fontSize: 22.0),
+                        textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -121,79 +188,82 @@ class AlbumPage extends ConsumerWidget {
                           album.artistId,
                           style: typography.body.copyWith(
                             color: colors.primary,
-                            fontSize: 18.0,
+                            fontSize: 16.0,
                             decoration: TextDecoration.underline,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
                       const SizedBox(height: DATokens.spacingTiny),
                       Text(
                         'Album • ${album.year} • ${album.trackCount} Songs',
                         style: typography.body.copyWith(color: colors.textSecondary),
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: DATokens.spacingLarge),
-                      if (songs.isNotEmpty)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                final modelSongs = songs.map((s) => shared.Song(
-                                  id: s.id,
-                                  title: s.title,
-                                  artist: s.artistId == 'Unknown Artist' ? album.artistId : s.artistId,
-                                  album: album.title,
-                                  duration: s.duration.value,
-                                  artworkUrl: s.artwork.url,
-                                  source: s.sourceId,
-                                  lyrics: null,
-                                )).toList();
-                                ref.read(playbackControllerProvider).setQueue(modelSongs, autoPlay: true, queueMode: QueueMode.album);
-                              },
-                              icon: const Icon(Icons.play_arrow),
-                              label: const Text('Play Album'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: colors.primary,
-                                foregroundColor: colors.textPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: DATokens.spacingLarge,
-                                  vertical: DATokens.spacingMedium,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: DATokens.spacingSmall),
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                final modelSongs = songs.map((s) => shared.Song(
-                                  id: s.id,
-                                  title: s.title,
-                                  artist: s.artistId == 'Unknown Artist' ? album.artistId : s.artistId,
-                                  album: album.title,
-                                  duration: s.duration.value,
-                                  artworkUrl: s.artwork.url,
-                                  source: s.sourceId,
-                                  lyrics: null,
-                                )).toList();
-                                ref.read(playbackControllerProvider).shufflePlaylist(modelSongs);
-                              },
-                              icon: const Icon(Icons.shuffle),
-                              label: const Text('Shuffle'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: colors.textPrimary,
-                                side: BorderSide(color: colors.border),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: DATokens.spacingLarge,
-                                  vertical: DATokens.spacingMedium,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      const SizedBox(height: DATokens.spacingMedium),
+                      actionButtons,
                     ],
                   ),
+                );
+              }
+
+              return Padding(
+                padding: const EdgeInsets.all(DATokens.spacingLarge),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12.0),
+                      child: DAImage(
+                        url: album.cover.url,
+                        width: artSize,
+                        height: artSize,
+                        fit: BoxFit.cover,
+                        placeholder: Container(
+                          width: artSize,
+                          height: artSize,
+                          color: colors.surfaceHover,
+                          child: Icon(Icons.music_note, size: 64.0, color: colors.textSecondary),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: DATokens.spacingLarge),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            album.title,
+                            style: typography.title.copyWith(fontSize: 28.0),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: DATokens.spacingSmall),
+                          GestureDetector(
+                            onTap: () => navigateToArtistByName(context, ref, album.artistId),
+                            child: Text(
+                              album.artistId,
+                              style: typography.body.copyWith(
+                                color: colors.primary,
+                                fontSize: 18.0,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: DATokens.spacingTiny),
+                          Text(
+                            'Album • ${album.year} • ${album.trackCount} Songs',
+                            style: typography.body.copyWith(color: colors.textSecondary),
+                          ),
+                          const SizedBox(height: DATokens.spacingLarge),
+                          actionButtons,
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
         SliverPadding(

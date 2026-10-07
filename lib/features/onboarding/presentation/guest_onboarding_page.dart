@@ -360,11 +360,15 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Choose your username',
-            style: typography.display.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 28.0,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Choose your username',
+              style: typography.display.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 28.0,
+              ),
             ),
           ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
           const SizedBox(height: DATokens.spacingTiny),
@@ -375,7 +379,7 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
               fontSize: 14.0,
             ),
           ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
-          const SizedBox(height: 40.0),
+          const SizedBox(height: 20.0),
           TextField(
             controller: _usernameController,
             maxLength: 20,
@@ -396,8 +400,7 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
               contentPadding: const EdgeInsets.symmetric(horizontal: DATokens.spacingMedium, vertical: DATokens.spacingMedium),
             ),
           ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
-          const SizedBox(height: 50.0),
-          // Live preview card
+          const SizedBox(height: 24.0),
           Center(
             child: Container(
               width: double.infinity,
@@ -416,10 +419,13 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
                 children: [
                   Icon(Icons.face_retouching_natural_outlined, size: 40.0, color: colors.primary),
                   const SizedBox(height: DATokens.spacingSmall),
-                  Text(
-                    greetingText,
-                    style: typography.title.copyWith(fontSize: 22.0, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      greetingText,
+                      style: typography.title.copyWith(fontSize: 22.0, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                   const SizedBox(height: 4.0),
                   Text(
@@ -429,7 +435,7 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
                 ],
               ),
             ),
-          ).animate().scale(duration: 500.ms, delay: 300.ms, curve: Curves.easeOutBack),
+          ).animate().scale(duration: 500.ms, delay: 300.ms, curve: Curves.easeOutCubic),
         ],
       ),
     );
@@ -441,11 +447,15 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Select languages',
-            style: typography.display.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 28.0,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Select languages',
+              style: typography.display.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 28.0,
+              ),
             ),
           ).animate().fadeIn(duration: 400.ms),
           const SizedBox(height: DATokens.spacingTiny),
@@ -456,18 +466,21 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
               fontSize: 14.0,
             ),
           ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
-          const SizedBox(height: 30.0),
+          const SizedBox(height: 20.0),
           Wrap(
             spacing: 12.0,
             runSpacing: 12.0,
             children: _languagesList.map((lang) {
               final isSelected = _selectedLanguages.contains(lang);
               return ChoiceChip(
-                label: Text(
-                  lang,
-                  style: TextStyle(
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected ? Colors.black : colors.textPrimary,
+                label: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    lang,
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected ? Colors.black : colors.textPrimary,
+                    ),
                   ),
                 ),
                 selected: isSelected,
@@ -496,11 +509,15 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Choose your region',
-            style: typography.display.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 28.0,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Choose your region',
+              style: typography.display.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 28.0,
+              ),
             ),
           ).animate().fadeIn(duration: 400.ms),
           const SizedBox(height: DATokens.spacingTiny),
@@ -511,7 +528,7 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
               fontSize: 14.0,
             ),
           ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
-          const SizedBox(height: 30.0),
+          const SizedBox(height: 20.0),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -543,24 +560,35 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
                       width: isSelected ? 2.0 : 1.0,
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                        color: isSelected ? colors.primary : colors.textSecondary,
-                        size: 18.0,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        region,
-                        style: typography.title.copyWith(
-                          fontSize: 15.0,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? colors.primary : colors.textPrimary,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                          color: isSelected ? colors.primary : colors.textSecondary,
+                          size: 18.0,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              region,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: typography.title.copyWith(
+                                fontSize: 15.0,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? colors.primary : colors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -577,11 +605,15 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Favorite genres',
-            style: typography.display.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 28.0,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Favorite genres',
+              style: typography.display.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 28.0,
+              ),
             ),
           ).animate().fadeIn(duration: 400.ms),
           const SizedBox(height: DATokens.spacingTiny),
@@ -592,7 +624,7 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
               fontSize: 14.0,
             ),
           ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
-          const SizedBox(height: 30.0),
+          const SizedBox(height: 20.0),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -639,14 +671,23 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          genre,
-                          style: typography.title.copyWith(
-                            fontSize: 15.0,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? colors.primary : colors.textPrimary,
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              genre,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: typography.title.copyWith(
+                                fontSize: 15.0,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? colors.primary : colors.textPrimary,
+                              ),
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 4),
                         if (isSelected)
                           Icon(Icons.check_circle, color: colors.primary, size: 20.0)
                         else
@@ -669,11 +710,15 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Who are your favorite artists?',
-            style: typography.display.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 28.0,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Who are your favorite artists?',
+              style: typography.display.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 28.0,
+              ),
             ),
           ).animate().fadeIn(duration: 400.ms),
           const SizedBox(height: DATokens.spacingTiny),
@@ -685,7 +730,6 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
             ),
           ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
           const SizedBox(height: 24.0),
-          // Artist search bar
           TextField(
             controller: _artistSearchController,
             onChanged: _onSearchChanged,
@@ -713,8 +757,6 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
             ),
           ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
           const SizedBox(height: 24.0),
-
-          // Search results or predefined popular recommendations list
           if (_isSearchingArtists)
             Center(
               child: Padding(
@@ -759,9 +801,15 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: DATokens.spacingMedium, vertical: 4.0),
                     leading: _buildArtistAvatar(artist, colors, typography),
-                    title: Text(
-                      artist.name,
-                      style: typography.title.copyWith(fontSize: 15.0, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                    title: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        artist.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: typography.title.copyWith(fontSize: 15.0, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+                      ),
                     ),
                     trailing: isSelected
                         ? Icon(Icons.check_circle, color: colors.primary)
@@ -798,7 +846,6 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
       );
     }
 
-    // High quality letter avatar with linear gradient fallback
     return Container(
       width: 44,
       height: 44,
@@ -837,7 +884,7 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
         ),
       ),
       child: Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(DATokens.spacingLarge),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -861,13 +908,16 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
               .scale(duration: 1.seconds, begin: const Offset(0.95, 0.95), end: const Offset(1.05, 1.05))
               .fadeIn(),
               const SizedBox(height: 40.0),
-              Text(
-                'Enter to Your Music Heaven',
-                style: typography.display.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 26.0,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'Enter to Your Music Heaven',
+                  style: typography.display.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 26.0,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ).animate().fadeIn(duration: 400.ms),
               const SizedBox(height: DATokens.spacingSmall),
               Text(
@@ -916,7 +966,7 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
 
     final isStep1Valid = _usernameController.text.trim().isNotEmpty && _usernameError.isEmpty;
     final isStep4Valid = _selectedGenres.length >= 3;
-    final isStep5Valid = true; // Optional minimum artists, but suggestions recommended
+    final isStep5Valid = true;
 
     bool isCurrentStepValid() {
       switch (_currentStep) {
@@ -927,7 +977,7 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
         case 4:
           return isStep5Valid;
         default:
-          return true; // Languages & Region can be empty or skipped if desired
+          return true;
       }
     }
 
@@ -966,7 +1016,6 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
                 ],
               ),
             ),
-            // Bottom Action bar
             Padding(
               padding: const EdgeInsets.all(DATokens.spacingLarge),
               child: Row(
@@ -983,7 +1032,10 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
                           padding: const EdgeInsets.symmetric(vertical: DATokens.spacingMedium),
                         ),
                         onPressed: _prevStep,
-                        child: const Text('Back'),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('Back'),
+                        ),
                       ),
                     ),
                     const SizedBox(width: DATokens.spacingMedium),
@@ -999,9 +1051,12 @@ class _GuestOnboardingPageState extends ConsumerState<GuestOnboardingPage> {
                         padding: const EdgeInsets.symmetric(vertical: DATokens.spacingMedium),
                       ),
                       onPressed: isCurrentStepValid() ? _nextStep : null,
-                      child: Text(
-                        _currentStep == 4 ? 'Finish' : 'Continue',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _currentStep == 4 ? 'Finish' : 'Continue',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ),

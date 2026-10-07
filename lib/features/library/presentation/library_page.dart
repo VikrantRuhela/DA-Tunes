@@ -413,9 +413,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                     cacheExtent: 800.0,
                     addRepaintBoundaries: true,
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: DATokens.spacingMedium,
-                      vertical: DATokens.spacingSmall,
+                    padding: EdgeInsets.only(
+                      left: DATokens.spacingMedium,
+                      right: DATokens.spacingMedium,
+                      top: DATokens.spacingSmall,
+                      bottom: Theme.of(context).platform == TargetPlatform.android ? 160.0 : DATokens.spacingSmall,
                     ),
                     itemCount: songs.length,
               itemBuilder: (context, index) {
@@ -515,9 +517,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(
-        horizontal: DATokens.spacingMedium,
-        vertical: DATokens.spacingSmall,
+      padding: EdgeInsets.only(
+        left: DATokens.spacingMedium,
+        right: DATokens.spacingMedium,
+        top: DATokens.spacingSmall,
+        bottom: Theme.of(context).platform == TargetPlatform.android ? 160.0 : DATokens.spacingSmall,
       ),
       itemCount: playlists.length,
       itemBuilder: (context, index) {
@@ -577,9 +581,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(
-        horizontal: DATokens.spacingMedium,
-        vertical: DATokens.spacingSmall,
+      padding: EdgeInsets.only(
+        left: DATokens.spacingMedium,
+        right: DATokens.spacingMedium,
+        top: DATokens.spacingSmall,
+        bottom: Theme.of(context).platform == TargetPlatform.android ? 160.0 : DATokens.spacingSmall,
       ),
       itemCount: songs.length,
       itemBuilder: (context, index) {
@@ -648,7 +654,12 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
     return GridView.builder(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(DATokens.spacingMedium),
+      padding: EdgeInsets.only(
+        left: DATokens.spacingMedium,
+        right: DATokens.spacingMedium,
+        top: DATokens.spacingMedium,
+        bottom: Theme.of(context).platform == TargetPlatform.android ? 160.0 : DATokens.spacingMedium,
+      ),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: DATokens.spacingMedium,
@@ -724,7 +735,12 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
     return GridView.builder(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(DATokens.spacingMedium),
+      padding: EdgeInsets.only(
+        left: DATokens.spacingMedium,
+        right: DATokens.spacingMedium,
+        top: DATokens.spacingMedium,
+        bottom: Theme.of(context).platform == TargetPlatform.android ? 160.0 : DATokens.spacingMedium,
+      ),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: DATokens.spacingMedium,

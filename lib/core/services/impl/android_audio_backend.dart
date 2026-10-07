@@ -86,6 +86,7 @@ class AndroidAudioBackend implements PlatformAudioBackend {
   @override
   Future<void> play() async {
     DALogger.info('AndroidAudioBackend: Start playback.');
+    await _player.setVolume(_volume);
     await _player.resume();
   }
 
@@ -98,6 +99,7 @@ class AndroidAudioBackend implements PlatformAudioBackend {
   @override
   Future<void> resume() async {
     DALogger.info('AndroidAudioBackend: Resume playback.');
+    await _player.setVolume(_volume);
     await _player.resume();
   }
 

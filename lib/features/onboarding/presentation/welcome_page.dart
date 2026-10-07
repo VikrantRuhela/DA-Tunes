@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import '../../../app/theme/tokens.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../shared/providers/backend_providers.dart';
 import 'widgets/auth_webview_page.dart';
+import '../../../shared/animations/motion_system.dart';
 
 class WelcomePage extends ConsumerWidget {
   const WelcomePage({super.key});
@@ -88,7 +88,7 @@ class WelcomePage extends ConsumerWidget {
                       ),
                     )
                     .animate()
-                    .scale(duration: 600.ms, curve: Curves.easeOutBack)
+                    .scale(duration: 600.ms, curve: Curves.easeOutCubic)
                     .fadeIn(duration: 400.ms),
 
                     const SizedBox(height: DATokens.spacingLarge),
@@ -144,15 +144,18 @@ class WelcomePage extends ConsumerWidget {
                           
                           final success = await Navigator.push<bool>(
                             context,
-                            MaterialPageRoute(builder: (context) => const AuthWebViewPage()),
+                            DAMotion.createPageRoute(builder: (context) => const AuthWebViewPage()),
                           );
                           if (success == true && context.mounted) {
                             context.go('/');
                           }
                         },
-                        child: const Text(
-                          'Continue with YouTube Music',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.0),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Continue with YouTube Music',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.0),
+                          ),
                         ),
                       ),
                     )
@@ -176,9 +179,12 @@ class WelcomePage extends ConsumerWidget {
                         onPressed: () async {
                           await ref.read(sessionManagerProvider).setGuestMode(true);
                         },
-                        child: const Text(
-                          'Continue as Guest',
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15.0),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Continue as Guest',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15.0),
+                          ),
                         ),
                       ),
                     )

@@ -21,11 +21,11 @@ import '../../domain/entities/value_objects.dart';
 import 'logger_service.dart';
 import 'music_content_classifier.dart';
 
-/// Concrete YouTube Music source adapter mapping remote API details to pure Domain entities.
 class YouTubeMusicAdapter implements MusicSourceAdapter {
   bool _isInitialized = false;
   late yt.YoutubeExplode _ytClient;
   final Map<String, Song> _songCache = {};
+  final http.Client _sharedHttpClient = http.Client();
 
   void cacheSongForTesting(Song song) {
     _songCache[song.id] = song;
@@ -83,12 +83,13 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
   Future<void> dispose() async {
     if (!_isInitialized) return;
     _ytClient.close();
+    _sharedHttpClient.close();
     _isInitialized = false;
     DALogger.info('YouTubeMusicAdapter: YoutubeExplode client closed.');
   }
 
   Duration _parseDuration(String durationStr) {
-    if (durationStr.isEmpty) return const Duration(minutes: 3);
+    if (durationStr.isEmpty) return Duration.zero;
     final parts = durationStr.split(':');
     try {
       if (parts.length == 3) {
@@ -106,7 +107,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
     } catch (_) {
       // Fallback on parsing exceptions
     }
-    return const Duration(minutes: 3);
+    return Duration.zero;
   }
 
   @override
@@ -221,15 +222,18 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
                     final pageType = navEndpoint?['browseEndpoint']?['browseEndpointContextSupportedConfigs']?['browseEndpointContextData']?['pageType'] as String? ?? '';
 
                     if (videoId.isNotEmpty) {
-                      String durationStr = '';
+                      Duration duration = Duration.zero;
                       final fixedColumns = renderer['fixedColumns'] as List?;
                       if (fixedColumns != null && fixedColumns.isNotEmpty) {
-                        final durRuns = fixedColumns[0]['musicResponsiveListItemFlexColumnRenderer']?['text']?['runs'] as List?;
+                        final durRuns = (fixedColumns[0]['musicResponsiveListItemFlexColumnRenderer']?['text']?['runs'] ??
+                                         fixedColumns[0]['musicResponsiveListItemFixedColumnRenderer']?['text']?['runs']) as List?;
                         if (durRuns != null && durRuns.isNotEmpty) {
-                          durationStr = durRuns[0]['text'] ?? '';
+                          duration = _parseDurationString(durRuns[0]['text'] ?? '');
                         }
                       }
-                      final duration = _parseDurationString(durationStr);
+                      if (duration == Duration.zero && flexColumns != null) {
+                        duration = _extractDurationFromFlexColumns(flexColumns);
+                      }
 
                       if (title.isNotEmpty) {
                         final song = _mapToSong(
@@ -265,7 +269,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
                             cover: Artwork(artworkUrl),
                             year: 2026,
                             trackCount: 1,
-                            duration: DurationValue(const Duration(minutes: 30)),
+                            duration: DurationValue(Duration.zero),
                           ));
                         }
                       } else if (pageType == 'MUSIC_PAGE_TYPE_PLAYLIST' || browseId.startsWith('VL') || browseId.startsWith('PL')) {
@@ -405,7 +409,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
         'params': 'EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D'
       };
 
-      final response = await http.post(
+      final response = await _sharedHttpClient.post(
         url,
         headers: headers,
         body: jsonEncode(payload),
@@ -528,7 +532,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
   }
 
   Duration _parseDurationString(String text) {
-    if (text.isEmpty) return const Duration(minutes: 3);
+    if (text.isEmpty) return Duration.zero;
     final parts = text.split(':');
     if (parts.length == 2) {
       final mins = int.tryParse(parts[0]) ?? 0;
@@ -540,7 +544,34 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
       final secs = int.tryParse(parts[2]) ?? 0;
       return Duration(hours: hrs, minutes: mins, seconds: secs);
     }
-    return const Duration(minutes: 3);
+    return Duration.zero;
+  }
+
+  Duration _extractDurationFromRuns(List? runs) {
+    if (runs == null) return Duration.zero;
+    final timeRegex = RegExp(r'^\d{1,2}:\d{2}(:\d{2})?$');
+    for (final run in runs) {
+      if (run is Map) {
+        final text = (run['text'] as String? ?? '').trim();
+        if (timeRegex.hasMatch(text)) {
+          return _parseDurationString(text);
+        }
+      }
+    }
+    return Duration.zero;
+  }
+
+  Duration _extractDurationFromFlexColumns(List? flexColumns) {
+    if (flexColumns == null) return Duration.zero;
+    for (final col in flexColumns) {
+      if (col is Map) {
+        final renderer = col['musicResponsiveListItemFlexColumnRenderer'];
+        final runs = renderer?['text']?['runs'] as List?;
+        final dur = _extractDurationFromRuns(runs);
+        if (dur > Duration.zero) return dur;
+      }
+    }
+    return Duration.zero;
   }
 
   @override
@@ -553,7 +584,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
       final gl = await _getGuestRegionCode();
       
       print('[HOME] Sending request');
-      final response = await http.post(
+      final response = await _sharedHttpClient.post(
         Uri.parse('https://music.youtube.com/youtubei/v1/browse?key=AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30&prettyPrint=false'),
         headers: headers,
         body: jsonEncode({
@@ -598,7 +629,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
                 String title = 'Unknown Title';
                 String artist = 'Unknown Artist';
                 String albumName = 'Single';
-                Duration duration = const Duration(minutes: 3);
+                Duration duration = Duration.zero;
 
                 if (flexColumns != null && flexColumns.isNotEmpty) {
                   final titleNode = flexColumns[0]['musicResponsiveListItemFlexColumnRenderer']['text']['runs'];
@@ -616,13 +647,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
                     }
                   }
                   
-                  if (flexColumns.length > 2) {
-                    final runs = flexColumns[2]['musicResponsiveListItemFlexColumnRenderer']['text']['runs'] as List?;
-                    if (runs != null && runs.isNotEmpty) {
-                      final durStr = runs[0]['text'] as String? ?? '';
-                      duration = _parseDurationString(durStr);
-                    }
-                  }
+                  duration = _extractDurationFromFlexColumns(flexColumns);
                 }
 
                 String thumbnail = '';
@@ -720,7 +745,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
                   title: title,
                   artistId: artist,
                   albumId: 'Single',
-                  duration: DurationValue(const Duration(minutes: 3)),
+                  duration: DurationValue(Duration.zero),
                   thumbnail: Artwork(cover),
                   artwork: Artwork(cover),
                   sourceId: id,
@@ -993,19 +1018,23 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
 
 
                   final cached = _songCache[videoId];
-                  if (cached != null) {
+                  if (cached != null && cached.duration.value > Duration.zero) {
                     songs.add(cached);
                     continue;
                   }
                   final durationRuns = item['fixedColumns']?[0]?['musicResponsiveListItemFixedColumnRenderer']?['text']?['runs'] as List?;
                   final durationStr = durationRuns != null && durationRuns.isNotEmpty ? durationRuns[0]['text'] as String : '';
+                  Duration duration = _parseDurationString(durationStr);
+                  if (duration == Duration.zero) {
+                    duration = _extractDurationFromFlexColumns(item['flexColumns'] as List?);
+                  }
 
                   final cleanAlbum = _extractAlbumNameFromFlexColumns(item) ?? 'Single';
                   final song = _mapToSong(
                     id: videoId,
                     rawTitle: trackTitle,
                     rawArtist: trackArtist,
-                    duration: _parseDurationString(durationStr),
+                    duration: duration,
                     albumId: cleanAlbum,
                     channelId: id,
                   );
@@ -1161,7 +1190,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
   Future<Song> getSong(String id) async {
     _checkInitialized();
     final cached = _songCache[id];
-    if (cached != null) {
+    if (cached != null && cached.duration.value > Duration.zero) {
       DALogger.info('YouTubeMusicAdapter: Reusing cached video metadata for Song ID: "$id"');
       return cached;
     }
@@ -1174,7 +1203,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
         id: video.id.value,
         rawTitle: video.title,
         rawArtist: video.author,
-        duration: video.duration ?? const Duration(minutes: 3),
+        duration: video.duration ?? Duration.zero,
         channelId: video.channelId.value,
       );
       _songCache[id] = song;
@@ -1232,7 +1261,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
             title: v.title,
             artistId: v.author,
             albumId: 'yt_album_unknown',
-            duration: DurationValue(v.duration ?? const Duration(minutes: 3)),
+            duration: DurationValue(v.duration ?? Duration.zero),
             thumbnail: Artwork(v.thumbnails.lowResUrl),
             artwork: Artwork(v.thumbnails.highResUrl),
             sourceId: this.id,
@@ -1445,7 +1474,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
         streamUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
         mimeType: 'audio/mp3',
         bitrate: 128000,
-        duration: const Duration(minutes: 3),
+        duration: Duration.zero,
         expiresAt: DateTime.now().add(const Duration(hours: 4)),
         headers: const {},
         quality: 'highest',
@@ -1460,7 +1489,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
     String? originalTitle;
     String? originalArtist;
     String? originalAlbum;
-    Duration originalDuration = const Duration(minutes: 3);
+    Duration originalDuration = Duration.zero;
 
     final cached = _songCache[id];
     if (cached != null) {
@@ -1475,7 +1504,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
         originalTitle = video.title;
         originalArtist = video.author;
         originalAlbum = 'yt_album_unknown';
-        originalDuration = video.duration ?? const Duration(minutes: 3);
+        originalDuration = video.duration ?? Duration.zero;
         fallbackQuery = _cleanQuery(video.author, video.title);
       } catch (_) {}
     }
@@ -2059,12 +2088,17 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
               ? durationRuns[0]['text'] as String 
               : (item['lengthText']?['simpleText'] as String? ?? '');
           
+          Duration duration = _parseDurationString(durationStr);
+          if (duration == Duration.zero) {
+            duration = _extractDurationFromFlexColumns(item['flexColumns'] as List?);
+          }
+
           final itemThumbs = (item['thumbnail']?['musicThumbnailRenderer']?['thumbnail']?['thumbnails'] ??
                               item['thumbnail']?['thumbnails']) as List?;
           final thumbUrl = itemThumbs != null && itemThumbs.isNotEmpty ? itemThumbs.last['url'] as String : coverUrl;
 
           final cached = _songCache[videoId];
-          if (cached != null) {
+          if (cached != null && cached.duration.value > Duration.zero) {
             songs.add(cached);
             continue;
           }
@@ -2080,7 +2114,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
             id: videoId,
             rawTitle: trackTitle,
             rawArtist: trackArtist,
-            duration: _parseDurationString(durationStr),
+            duration: duration,
             albumId: cleanAlbum,
             channelId: rendererChannelId,
           );
@@ -2172,7 +2206,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
 
     Duration totalDuration = Duration.zero;
     for (final v in videos) {
-      totalDuration += v.duration ?? const Duration(minutes: 3);
+      totalDuration += v.duration ?? Duration.zero;
     }
 
     int year = DateTime.now().year;
@@ -2207,7 +2241,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
         title: v.title,
         artistId: trackArtist,
         albumId: playlist.title.isNotEmpty ? playlist.title : 'Single',
-        duration: DurationValue(v.duration ?? const Duration(minutes: 3)),
+        duration: DurationValue(v.duration ?? Duration.zero),
         thumbnail: Artwork(v.thumbnails.lowResUrl),
         artwork: Artwork(v.thumbnails.highResUrl),
         sourceId: this.id,
@@ -2264,7 +2298,7 @@ class YouTubeMusicAdapter implements MusicSourceAdapter {
           id: v.id.value,
           rawTitle: v.title,
           rawArtist: trackArtist,
-          duration: v.duration ?? const Duration(minutes: 3),
+          duration: v.duration ?? Duration.zero,
           albumId: 'Single',
           channelId: v.channelId.value,
         );

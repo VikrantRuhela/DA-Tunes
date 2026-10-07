@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/providers/player_providers.dart';
 import '../../../../shared/providers/library_providers.dart';
 import '../../../../core/services/device_memory_manager.dart';
+import '../../../../shared/animations/motion_system.dart';
 
 class PlayerBackground extends ConsumerWidget {
   final Widget child;
@@ -22,8 +23,8 @@ class PlayerBackground extends ConsumerWidget {
     final showAlbumArt = ref.watch(showAlbumArtBackgroundProvider);
     final isLowRam = !ref.watch(enableExtraEffectsProvider);
 
-    final duration = isImmersive ? const Duration(milliseconds: 420) : const Duration(milliseconds: 380);
-    const curve = Curves.fastOutSlowIn;
+    final duration = ref.scaledDuration(DAMotion.playerDuration);
+    final curve = isImmersive ? Curves.easeOutCubic : Curves.easeInOutCubic;
 
     final borderRadius = isImmersive
         ? BorderRadius.zero

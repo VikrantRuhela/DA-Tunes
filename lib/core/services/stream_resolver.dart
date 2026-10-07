@@ -19,17 +19,16 @@ enum StreamQuality {
   highest,
 }
 
-/// Stream resolver bridging Pluggable Source Adapters and Playback Engine.
 class StreamResolver {
   final SourceManager _sourceManager;
   final LocalStreamProxy? _proxy;
   static final Map<String, AudioStream> _streamCache = {};
+  static final Map<String, Future<AudioStream>> _inFlightResolutions = {};
 
   static void invalidate(String trackId) {
-    if (_streamCache.containsKey(trackId)) {
-      _streamCache.remove(trackId);
-      DALogger.info('StreamResolver: Cache invalidated for track "$trackId" due to proxy stream failure.');
-    }
+    _streamCache.remove(trackId);
+    _inFlightResolutions.remove(trackId);
+    DALogger.info('StreamResolver: Cache invalidated for track "$trackId" due to proxy stream failure.');
   }
 
   static Song? lastResolvedSong;
@@ -37,7 +36,6 @@ class StreamResolver {
 
   StreamResolver(this._sourceManager, [this._proxy]);
 
-  /// Extract audio URL and standardize payload, checking caching bounds.
   Future<AudioStream> resolve({
     required String trackId,
     required String providerId,
@@ -45,9 +43,48 @@ class StreamResolver {
     String? artist,
     Duration? duration,
     StreamQuality quality = StreamQuality.auto,
+  }) {
+    return _resolve(
+      trackId: trackId,
+      providerId: providerId,
+      songTitle: songTitle,
+      artist: artist,
+      duration: duration,
+      quality: quality,
+      isPrefetch: false,
+    );
+  }
+
+  Future<AudioStream> resolvePrefetch({
+    required String trackId,
+    required String providerId,
+    String? songTitle,
+    String? artist,
+    Duration? duration,
+    StreamQuality quality = StreamQuality.auto,
+  }) {
+    return _resolve(
+      trackId: trackId,
+      providerId: providerId,
+      songTitle: songTitle,
+      artist: artist,
+      duration: duration,
+      quality: quality,
+      isPrefetch: true,
+    );
+  }
+
+  Future<AudioStream> _resolve({
+    required String trackId,
+    required String providerId,
+    String? songTitle,
+    String? artist,
+    Duration? duration,
+    StreamQuality quality = StreamQuality.auto,
+    required bool isPrefetch,
   }) async {
     final startTime = DateTime.now();
-    DALogger.info('StreamResolver: Resolving stream for track "$trackId" (quality: ${quality.name})');
+    DALogger.info('StreamResolver: Resolving stream for track "$trackId" (quality: ${quality.name}, prefetch: $isPrefetch)');
 
     if (songTitle != null && artist != null) {
       try {
@@ -58,7 +95,7 @@ class StreamResolver {
             title: songTitle,
             artistId: artist,
             albumId: 'yt_album_unknown',
-            duration: DurationValue(duration ?? const Duration(minutes: 3)),
+            duration: DurationValue(duration ?? Duration.zero),
             thumbnail: Artwork(''),
             artwork: Artwork(''),
             sourceId: providerId,
@@ -74,7 +111,7 @@ class StreamResolver {
         streamUrl: trackId,
         mimeType: 'audio/mpeg',
         bitrate: 320,
-        duration: const Duration(minutes: 3),
+        duration: duration ?? Duration.zero,
         expiresAt: DateTime.now().add(const Duration(days: 365)),
         headers: const {},
         quality: quality.name,
@@ -82,40 +119,98 @@ class StreamResolver {
         isLive: false,
         isCached: true,
       );
-      lastResolvedUrl = trackId;
+      if (!isPrefetch) {
+        lastResolvedUrl = trackId;
+      }
       return localStream;
     }
 
-    // Return cache if valid
     final cached = _streamCache[trackId];
     if (cached != null && !cached.isExpired) {
       DALogger.info('StreamResolver: Reusing cached stream for track "$trackId"');
-      if (songTitle != null && artist != null) {
-        lastResolvedSong = Song(
-          id: trackId,
-          title: songTitle,
-          artistId: artist,
-          albumId: 'yt_album_unknown',
-          duration: DurationValue(duration ?? const Duration(minutes: 3)),
-          thumbnail: Artwork(''),
-          artwork: Artwork(''),
-          sourceId: providerId,
-        );
-      } else {
-        lastResolvedSong = await _sourceManager.getSong(trackId);
+      if (!isPrefetch) {
+        if (songTitle != null && artist != null) {
+          lastResolvedSong = Song(
+            id: trackId,
+            title: songTitle,
+            artistId: artist,
+            albumId: 'yt_album_unknown',
+            duration: DurationValue(duration ?? Duration.zero),
+            thumbnail: Artwork(''),
+            artwork: Artwork(''),
+            sourceId: providerId,
+          );
+        } else {
+          lastResolvedSong = await _sourceManager.getSong(trackId);
+        }
+        lastResolvedUrl = cached.streamUrl;
       }
-      lastResolvedUrl = cached.streamUrl;
       return cached;
     }
 
+    final inFlight = _inFlightResolutions[trackId];
+    if (inFlight != null) {
+      DALogger.info('StreamResolver: Deduplicating concurrent stream resolution for track "$trackId"');
+      final stream = await inFlight;
+      if (!isPrefetch) {
+        lastResolvedUrl = stream.streamUrl;
+        if (songTitle != null && artist != null) {
+          lastResolvedSong = Song(
+            id: trackId,
+            title: songTitle,
+            artistId: artist,
+            albumId: 'yt_album_unknown',
+            duration: DurationValue(duration ?? Duration.zero),
+            thumbnail: Artwork(''),
+            artwork: Artwork(''),
+            sourceId: providerId,
+          );
+        } else {
+          try {
+            lastResolvedSong = await _sourceManager.getSong(trackId);
+          } catch (_) {}
+        }
+      }
+      return stream;
+    }
+
+    final future = _resolveInternal(
+      trackId: trackId,
+      providerId: providerId,
+      songTitle: songTitle,
+      artist: artist,
+      duration: duration,
+      quality: quality,
+      startTime: startTime,
+      isPrefetch: isPrefetch,
+    );
+    _inFlightResolutions[trackId] = future;
+    try {
+      return await future;
+    } finally {
+      _inFlightResolutions.remove(trackId);
+    }
+  }
+
+  Future<AudioStream> _resolveInternal({
+    required String trackId,
+    required String providerId,
+    String? songTitle,
+    String? artist,
+    Duration? duration,
+    required StreamQuality quality,
+    required DateTime startTime,
+    bool isPrefetch = false,
+  }) async {
     String title = songTitle ?? 'Unknown Title';
+    Song? resolvedSong;
     if (songTitle != null && artist != null) {
-      lastResolvedSong = Song(
+      resolvedSong = Song(
         id: trackId,
         title: songTitle,
         artistId: artist,
         albumId: 'yt_album_unknown',
-        duration: DurationValue(duration ?? const Duration(minutes: 3)),
+        duration: DurationValue(duration ?? Duration.zero),
         thumbnail: Artwork(''),
         artwork: Artwork(''),
         sourceId: providerId,
@@ -124,15 +219,18 @@ class StreamResolver {
       try {
         final song = await _sourceManager.getSong(trackId);
         title = song.title;
-        lastResolvedSong = song;
+        resolvedSong = song;
       } catch (_) {}
+    }
+    if (!isPrefetch && resolvedSong != null) {
+      lastResolvedSong = resolvedSong;
     }
 
     AudioStream stream;
     try {
       final raw = await _sourceManager.getAudioStream(trackId);
 
-      final artworkUrlStr = lastResolvedSong?.artwork.url ?? '';
+      final artworkUrlStr = resolvedSong?.artwork.url ?? '';
       final resolvedUrl = _proxy != null && _proxy.port > 0
           ? 'http://127.0.0.1:${_proxy.port}/stream?url=${Uri.encodeComponent(raw.streamUrl)}&trackId=${Uri.encodeComponent(trackId)}&artworkUrl=${Uri.encodeComponent(artworkUrlStr)}'
           : raw.streamUrl;
@@ -153,9 +251,10 @@ class StreamResolver {
       );
 
       _validateStream(stream);
-      lastResolvedUrl = stream.streamUrl;
+      if (!isPrefetch) {
+        lastResolvedUrl = stream.streamUrl;
+      }
 
-      // Cache it
       _streamCache[trackId] = stream.copyWith(isCached: true);
       if (_streamCache.length > 30) {
         _streamCache.remove(_streamCache.keys.first);

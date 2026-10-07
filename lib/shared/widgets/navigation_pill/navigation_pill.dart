@@ -4,6 +4,7 @@ import 'navigation_pill_controller.dart';
 import '../../../../core/extensions/context_extensions.dart';
 import '../../../../app/theme/tokens.dart';
 import '../../../../core/services/device_memory_manager.dart';
+import '../../animations/motion_system.dart';
 
 class NavigationPill extends StatelessWidget {
   const NavigationPill({super.key});
@@ -24,12 +25,7 @@ class NavigationPill extends StatelessWidget {
             width: pillWidth,
             height: 54.0,
             decoration: BoxDecoration(
-              color: colors.surface.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(DATokens.radiusLarge),
-              border: Border.all(
-                color: colors.border.withValues(alpha: 0.3),
-                width: 1.0,
-              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.25),
@@ -45,11 +41,20 @@ class NavigationPill extends StatelessWidget {
                   sigmaX: DeviceMemoryManager.instance.getRecommendedBlurSigma(12.0),
                   sigmaY: DeviceMemoryManager.instance.getRecommendedBlurSigma(12.0),
                 ),
-                child: Stack(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colors.surface.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(DATokens.radiusLarge),
+                    border: Border.all(
+                      color: colors.border.withValues(alpha: 0.3),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Stack(
                   children: [
                     AnimatedPositioned(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOutCubic,
+                      duration: DAMotion.tabDuration,
+                      curve: DAMotion.standardCurve,
                       left: (currentIndex * (pillWidth / controller.items.length)) + 8.0,
                       top: 6.0,
                       bottom: 6.0,
@@ -80,8 +85,9 @@ class NavigationPill extends StatelessWidget {
                                   height: double.infinity,
                                   alignment: Alignment.center,
                                   child: AnimatedScale(
-                                    scale: isSelected ? 1.05 : 1.0,
-                                    duration: const Duration(milliseconds: 200),
+                                    scale: 1.0,
+                                    duration: DAMotion.fast,
+                                    curve: DAMotion.standardCurve,
                                     child: Icon(
                                       isSelected ? item.selectedIcon : item.icon,
                                       color: isSelected ? colors.primary : colors.textSecondary,
@@ -100,8 +106,9 @@ class NavigationPill extends StatelessWidget {
               ),
             ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
   }
 }

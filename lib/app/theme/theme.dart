@@ -85,6 +85,41 @@ class DATypography {
       color: DATokens.lightTextSecondary,
     ),
   );
+
+  static const DATypography amoled = DATypography(
+    display: TextStyle(
+      fontFamily: 'Funnel Display',
+      fontSize: 32.0,
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+      letterSpacing: -0.5,
+    ),
+    headline: TextStyle(
+      fontFamily: 'Funnel Display',
+      fontSize: 22.0,
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+      letterSpacing: -0.2,
+    ),
+    title: TextStyle(
+      fontFamily: 'Funnel Display',
+      fontSize: 16.0,
+      fontWeight: FontWeight.w600,
+      color: Colors.white,
+    ),
+    body: TextStyle(
+      fontFamily: 'Funnel Display',
+      fontSize: 14.0,
+      fontWeight: FontWeight.normal,
+      color: Colors.white70,
+    ),
+    caption: TextStyle(
+      fontFamily: 'Funnel Display',
+      fontSize: 12.0,
+      fontWeight: FontWeight.normal,
+      color: Colors.white70,
+    ),
+  );
 }
 
 class DAThemeExtension extends ThemeExtension<DAThemeExtension> {
@@ -152,6 +187,23 @@ class DAThemeExtension extends ThemeExtension<DAThemeExtension> {
     gradientStart: Color(0xFFFFFFFF),
     gradientMiddle: Color(0xFFFFFFFF),
     gradientEnd: Color(0xFFFFFFFF),
+  );
+
+  static const DAThemeExtension amoled = DAThemeExtension(
+    background: Color(0xFF000000),
+    surface: Color(0xFF000000),
+    surfaceCard: Color(0xFF000000),
+    surfaceHover: Color(0xFF111111),
+    primary: Color(0xFFFFFFFF),
+    primaryButton: Color(0xFF000000),
+    accent: Color(0xFFFFFFFF),
+    textPrimary: Color(0xFFFFFFFF),
+    textSecondary: Color(0xB3FFFFFF),
+    border: Color(0x4DFFFFFF),
+    typography: DATypography.amoled,
+    gradientStart: Color(0xFF000000),
+    gradientMiddle: Color(0xFF000000),
+    gradientEnd: Color(0xFF000000),
   );
 
   @override
@@ -277,6 +329,111 @@ class DATheme {
         foregroundColor: Colors.white,
       ),
       extensions: const [DAThemeExtension.light],
+    );
+  }
+
+  static ThemeData get amoledTheme {
+    return ThemeData(
+      useMaterial3: true,
+      fontFamily: 'Funnel Display',
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: Colors.black,
+      colorScheme: const ColorScheme.dark(
+        primary: Colors.white,
+        surface: Colors.black,
+        onPrimary: Colors.black,
+        onSurface: Colors.white,
+        error: Colors.redAccent,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          side: const BorderSide(color: Colors.white38),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          side: const BorderSide(color: Colors.white38),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+      ),
+      extensions: const [DAThemeExtension.amoled],
+    );
+  }
+
+  static ThemeData m3Theme({
+    required Brightness brightness,
+    Color seedColor = const Color(0xFF6750A4),
+  }) {
+    final bool isDark = brightness == Brightness.dark;
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: brightness,
+    );
+
+    final m3Ext = DAThemeExtension(
+      background: colorScheme.surface,
+      surface: colorScheme.surfaceContainer,
+      surfaceCard: colorScheme.surfaceContainerHigh,
+      surfaceHover: colorScheme.surfaceContainerHighest,
+      primary: colorScheme.primary,
+      primaryButton: colorScheme.primary,
+      accent: colorScheme.secondary,
+      textPrimary: colorScheme.onSurface,
+      textSecondary: colorScheme.onSurfaceVariant,
+      border: colorScheme.outlineVariant,
+      typography: isDark ? DATypography.dark : DATypography.light,
+      gradientStart: colorScheme.surface,
+      gradientMiddle: colorScheme.surfaceContainer,
+      gradientEnd: colorScheme.surfaceContainerLow,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      fontFamily: 'Roboto',
+      brightness: brightness,
+      scaffoldBackgroundColor: colorScheme.surface,
+      colorScheme: colorScheme,
+      cardTheme: CardThemeData(
+        color: colorScheme.surfaceContainerHigh,
+        elevation: 1,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: colorScheme.primaryContainer,
+          foregroundColor: colorScheme.onPrimaryContainer,
+          elevation: 1,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colorScheme.primaryContainer,
+        foregroundColor: colorScheme.onPrimaryContainer,
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: colorScheme.surfaceContainer,
+        indicatorColor: colorScheme.secondaryContainer,
+        labelTextStyle: WidgetStateProperty.all(
+          TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: colorScheme.onSurface),
+        ),
+      ),
+      extensions: [m3Ext],
     );
   }
 }

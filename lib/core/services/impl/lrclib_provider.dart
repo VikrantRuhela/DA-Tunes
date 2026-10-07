@@ -3,8 +3,16 @@ import 'dart:io';
 import '../../../domain/entities/lyrics.dart';
 import '../lyrics_provider.dart';
 import '../logger_service.dart';
+import '../network_identity.dart';
 
 class LrcLibProvider implements LyricsProvider {
+  static final Map<String, DateTime> _negativeCache = {};
+  static HttpClient? _sharedClient;
+  static HttpClient get _client => _sharedClient ??= HttpClient()
+    ..connectionTimeout = const Duration(seconds: 10)
+    ..idleTimeout = const Duration(seconds: 30)
+    ..maxConnectionsPerHost = 4;
+
   @override
   String get id => 'lrclib';
 
@@ -19,16 +27,17 @@ class LrcLibProvider implements LyricsProvider {
     required String album,
     required Duration duration,
   }) async {
-    final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 10);
+    final negExpiry = _negativeCache[songId];
+    if (negExpiry != null && DateTime.now().isBefore(negExpiry)) {
+      DALogger.info('LrcLibProvider: Skipping negative-cached song "$songId"');
+      return null;
+    }
 
-    // Clean query parameters
     final cleanArtist = artist.replaceAll(' - Topic', '').replaceAll('VEVO', '').trim();
     final cleanTitle = title.replaceAll(RegExp(r'\(.*?\)|\[.*?\]'), '').trim();
     final cleanAlbum = album == 'yt_album_unknown' ? '' : album;
     final durationSeconds = duration.inSeconds;
 
-    // 1. Try direct GET request (high-confidence endpoint)
     final getUri = Uri.parse('https://lrclib.net/api/get').replace(
       queryParameters: {
         'artist_name': cleanArtist,
@@ -40,8 +49,15 @@ class LrcLibProvider implements LyricsProvider {
 
     try {
       DALogger.info('LrcLibProvider: Sending direct GET query for "$cleanTitle" by "$cleanArtist"');
-      final request = await client.getUrl(getUri);
+      final request = await _client.getUrl(getUri);
+      request.headers.set('User-Agent', NetworkIdentity.lrclibUserAgent);
       final response = await request.close();
+
+      if (response.statusCode == 429) {
+        DALogger.warning('LrcLibProvider: Rate-limited by LRCLIB (429)');
+        _negativeCache[songId] = DateTime.now().add(const Duration(minutes: 15));
+        return null;
+      }
 
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
@@ -65,8 +81,15 @@ class LrcLibProvider implements LyricsProvider {
 
     try {
       DALogger.info('LrcLibProvider: Falling back to search for "$cleanArtist $cleanTitle"');
-      final request = await client.getUrl(searchUri);
+      final request = await _client.getUrl(searchUri);
+      request.headers.set('User-Agent', NetworkIdentity.lrclibUserAgent);
       final response = await request.close();
+
+      if (response.statusCode == 429) {
+        DALogger.warning('LrcLibProvider: Rate-limited by LRCLIB during search (429)');
+        _negativeCache[songId] = DateTime.now().add(const Duration(minutes: 15));
+        return null;
+      }
 
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
@@ -84,7 +107,6 @@ class LrcLibProvider implements LyricsProvider {
           int score = 0;
           final reasons = <String>[];
 
-          // Artist match
           final normOrigArtist = _normalize(cleanArtist);
           final normCandArtist = _normalize(candArtist);
           if (normCandArtist == normOrigArtist) {
@@ -95,7 +117,6 @@ class LrcLibProvider implements LyricsProvider {
             reasons.add('Partial artist match (+600)');
           }
 
-          // Title match
           final normOrigTitle = _normalize(cleanTitle);
           final normCandTitle = _normalize(candTitle);
           if (normCandTitle == normOrigTitle) {
@@ -109,7 +130,6 @@ class LrcLibProvider implements LyricsProvider {
             reasons.add('Title mismatch penalty (-5000)');
           }
 
-          // Album match
           if (cleanAlbum.isNotEmpty) {
             final normOrigAlbum = _normalize(cleanAlbum);
             final normCandAlbum = _normalize(candAlbum);
@@ -119,7 +139,6 @@ class LrcLibProvider implements LyricsProvider {
             }
           }
 
-          // Duration confidence check (±3 seconds check)
           final diff = (candDuration - durationSeconds).abs();
           if (diff <= 3) {
             score += 150;
@@ -151,10 +170,9 @@ class LrcLibProvider implements LyricsProvider {
       }
     } catch (e) {
       DALogger.info('LrcLibProvider: Search request failed: $e');
-    } finally {
-      client.close();
     }
 
+    _negativeCache[songId] = DateTime.now().add(const Duration(hours: 48));
     return null;
   }
 

@@ -5,7 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'theme.dart';
 import '../../shared/providers/player_providers.dart';
+import '../../shared/providers/theme_providers.dart';
 import '../../shared/models/music_models.dart';
+
+final activeThemeProvider = Provider<ThemeData>((ref) {
+  final mode = ref.watch(appThemeModeProvider);
+  if (mode == AppThemeMode.amoled) {
+    return DATheme.amoledTheme;
+  }
+  if (mode == AppThemeMode.material3) {
+    final m3Mode = ref.watch(m3ThemeModeProvider);
+    final brightness = m3Mode == M3ThemeMode.light ? Brightness.light : Brightness.dark;
+    return DATheme.m3Theme(brightness: brightness);
+  }
+  return ref.watch(dynamicThemeProvider);
+});
 
 final dynamicThemeProvider = StateNotifierProvider<DynamicThemeNotifier, ThemeData>((ref) {
   final notifier = DynamicThemeNotifier();

@@ -12,6 +12,7 @@ import 'lyrics_preview.dart';
 import 'immersive/immersive_player.dart';
 import '../../../../shared/widgets/da_image.dart';
 import '../../../../core/extensions/context_extensions.dart';
+import '../../../../shared/animations/motion_system.dart';
 
 class PersistentPlayerPanel extends ConsumerWidget {
   const PersistentPlayerPanel({super.key});
@@ -19,14 +20,14 @@ class PersistentPlayerPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isImmersive = ref.watch(immersiveModeProvider);
-    final duration = isImmersive ? const Duration(milliseconds: 420) : const Duration(milliseconds: 380);
+    final duration = ref.scaledDuration(DAMotion.playerDuration);
     final currentSong = ref.watch(currentSongProvider);
 
     return PlayerBackground(
       child: AnimatedSwitcher(
         duration: duration,
-        switchInCurve: Curves.fastOutSlowIn,
-        switchOutCurve: Curves.fastOutSlowIn,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInOutCubic,
         child: isImmersive
             ? const ImmersivePlayer(key: ValueKey('immersive'))
             : LayoutBuilder(

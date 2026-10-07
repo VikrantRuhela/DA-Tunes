@@ -83,7 +83,7 @@ class _LyricsPreviewState extends ConsumerState<LyricsPreview> {
 
     return Expanded(
       child: GestureDetector(
-        onTap: () => context.push('/lyrics'),
+        onTap: () => PlayerPanelController.toggleLyrics(context, ref),
         child: DACard(
           isHoverable: true,
           padding: const EdgeInsets.all(DATokens.spacingMedium),

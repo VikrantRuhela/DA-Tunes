@@ -33,7 +33,7 @@ class LocalMetadataParser {
             ? metadata.album!
             : 'Local Album';
 
-        final duration = metadata?.duration ?? const Duration(minutes: 3);
+        final duration = metadata?.duration ?? Duration.zero;
         final lyrics = metadata?.lyrics;
 
         // 2. Extract cover artwork if available and write to cache folder

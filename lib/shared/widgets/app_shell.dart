@@ -8,10 +8,13 @@ import '../../core/services/device_memory_manager.dart';
 import '../../app/theme/tokens.dart';
 import '../../shared/providers/player_providers.dart';
 import '../../shared/providers/library_providers.dart';
+import '../../shared/providers/theme_providers.dart';
 import '../../shared/animations/motion_system.dart';
 import 'custom_title_bar.dart';
 import '../../features/player/presentation/widgets/mini_player.dart';
 import '../../features/player/presentation/widgets/player_panel.dart';
+import '../../features/player/presentation/widgets/player_background.dart';
+import '../../features/player/presentation/widgets/immersive/immersive_player.dart';
 import '../../features/home/presentation/widgets/navigation_rail.dart';
 import '../../features/player/presentation/widgets/immersive/android_sliding_player.dart';
 import 'ambient_background.dart';
@@ -76,14 +79,16 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape || screenWidth >= 900;
-    final bool showPlayerPanel = isLandscape || screenWidth >= 1200;
+    final bool isM3 = ref.watch(appThemeModeProvider) == AppThemeMode.material3;
+    final bool isAmoled = ref.watch(appThemeModeProvider) == AppThemeMode.amoled;
+    final bool showPlayerPanel = (!isM3 && !isAmoled) && (isLandscape || screenWidth >= 1200);
     final bool showNavRail = isLandscape || screenWidth >= 700;
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    final duration = ref.scaledDuration(isImmersive ? DAMotion.large : const Duration(milliseconds: 380));
-    final curve = ref.scaledCurve(DAMotion.fastOutSlowIn);
+    final duration = ref.scaledDuration(DAMotion.playerDuration);
+    final curve = isImmersive ? ref.scaledCurve(DAMotion.enterCurve) : ref.scaledCurve(DAMotion.exitCurve);
 
-    final containerBorderRadius = isImmersive
+    final containerBorderRadius = (isImmersive || isM3)
         ? BorderRadius.zero
         : (isAndroid && !isLandscape
             ? const BorderRadius.vertical(
@@ -91,7 +96,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               )
             : BorderRadius.circular(DATokens.radiusXXLarge));
 
-    final containerMargin = isImmersive
+    final containerMargin = (isImmersive || isM3)
         ? EdgeInsets.zero
         : (isAndroid && !isLandscape
             ? const EdgeInsets.only(
@@ -107,28 +112,23 @@ class _AppShellState extends ConsumerState<AppShell> {
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
 
-        // 1. If full-screen immersive player is open, close immersive mode first
         if (ref.read(immersiveModeProvider)) {
           ref.read(immersiveModeProvider.notifier).state = false;
           return;
         }
 
-        // 2. Check if shellNavigatorKey can pop nested screens (e.g. /album/:id -> /library)
         if (shellNavigatorKey.currentState != null && shellNavigatorKey.currentState!.canPop()) {
           shellNavigatorKey.currentState!.pop();
           return;
         }
 
-        // 3. Check current location
         final location = GoRouterState.of(context).matchedLocation;
 
-        // 4. If on any tab/page other than Home ('/'), navigate back to Home
         if (location != '/') {
           context.go('/');
           return;
         }
 
-        // 5. If already on Home ('/'), exit app naturally
         SystemNavigator.pop();
       },
       child: TastePlaybackObserver(
@@ -143,102 +143,120 @@ class _AppShellState extends ConsumerState<AppShell> {
                   children: [
                     const CustomTitleBar(),
                     Expanded(
-                      child: Row(
+                      child: Stack(
                         children: [
-                          _DesktopNavRail(visible: showNavRail),
-                          Expanded(
-                            child: AnimatedOpacity(
-                              opacity: isImmersive ? 0.0 : 1.0,
-                              duration: duration,
-                              curve: curve,
-                              child: AnimatedContainer(
-                                duration: duration,
-                                curve: curve,
-                                margin: containerMargin,
-                                child: ClipRRect(
-                                  borderRadius: containerBorderRadius,
-                                  child: Stack(
-                                    children: [
-                                      Positioned.fill(
-                                        child: showAlbumArt
-                                            ? ClipRect(
-                                                child: BackdropFilter(
-                                                  filter: ImageFilter.blur(
-                                                    sigmaX: isLowRam ? 16.0 : 25.0,
-                                                    sigmaY: isLowRam ? 16.0 : 25.0,
-                                                  ),
-                                                  child: Container(
-                                                    decoration: BoxDecoration(
-                                                      color: isImmersive ? Colors.transparent : colors.background.withValues(alpha: 0.50),
-                                                      borderRadius: containerBorderRadius,
-                                                      border: Border.all(
-                                                        color: isImmersive ? Colors.transparent : colors.border.withValues(alpha: 0.4),
-                                                        width: 1.0,
+                          Positioned.fill(
+                            child: Row(
+                              children: [
+                                _DesktopNavRail(visible: showNavRail),
+                                Expanded(
+                                  child: AnimatedOpacity(
+                                    opacity: (showPlayerPanel && isImmersive) ? 0.0 : 1.0,
+                                    duration: duration,
+                                    curve: curve,
+                                    child: AnimatedContainer(
+                                      duration: duration,
+                                      curve: curve,
+                                      margin: containerMargin,
+                                      child: ClipRRect(
+                                        borderRadius: containerBorderRadius,
+                                        child: Stack(
+                                          children: [
+                                            Positioned.fill(
+                                              child: (showAlbumArt && !isM3)
+                                                  ? ClipRect(
+                                                      child: BackdropFilter(
+                                                        filter: ImageFilter.blur(
+                                                          sigmaX: isLowRam ? 16.0 : 25.0,
+                                                          sigmaY: isLowRam ? 16.0 : 25.0,
+                                                        ),
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            color: (showPlayerPanel && isImmersive) ? Colors.transparent : colors.background.withValues(alpha: 0.50),
+                                                            borderRadius: containerBorderRadius,
+                                                            border: Border.all(
+                                                              color: (isImmersive || isM3) ? Colors.transparent : colors.border.withValues(alpha: 0.4),
+                                                              width: (isImmersive || isM3) ? 0.0 : 1.0,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : Container(
+                                                      decoration: BoxDecoration(
+                                                        color: (showPlayerPanel && isImmersive) ? Colors.transparent : colors.background,
+                                                        borderRadius: containerBorderRadius,
+                                                        border: Border.all(
+                                                          color: (isImmersive || isM3) ? Colors.transparent : colors.border.withValues(alpha: 0.4),
+                                                          width: (isImmersive || isM3) ? 0.0 : 1.0,
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                ),
-                                              )
-                                            : Container(
-                                                decoration: BoxDecoration(
-                                                  color: isImmersive ? Colors.transparent : colors.background,
-                                                  borderRadius: containerBorderRadius,
-                                                  border: Border.all(
-                                                    color: isImmersive ? Colors.transparent : colors.border.withValues(alpha: 0.4),
-                                                    width: 1.0,
-                                                  ),
+                                            ),
+                                            Positioned.fill(
+                                              child: IgnorePointer(
+                                                ignoring: isImmersive,
+                                                child: Stack(
+                                                  children: [
+                                                    Padding(
+                                                      padding: EdgeInsets.only(
+                                                        bottom: ((isLandscape || !isAndroid) && !showPlayerPanel && ref.watch(currentSongProvider) != null ? 80.0 : 0.0),
+                                                      ),
+                                                      child: widget.child,
+                                                    ),
+                                                    if ((isLandscape || !isAndroid) && !showPlayerPanel)
+                                                      const Align(
+                                                        alignment: Alignment.bottomCenter,
+                                                        child: MiniPlayer(),
+                                                      ),
+                                                  ],
                                                 ),
                                               ),
-                                      ),
-                                      Positioned.fill(
-                                        child: IgnorePointer(
-                                          ignoring: isImmersive,
-                                          child: Stack(
-                                            children: [
-                                              Padding(
-                                                padding: EdgeInsets.only(
-                                                  bottom: isAndroid && !isImmersive && !isLandscape
-                                                      ? (ref.watch(currentSongProvider) != null ? 144.0 + bottomPadding : 80.0 + bottomPadding)
-                                                      : 0.0,
-                                                ),
-                                                child: widget.child,
-                                              ),
-                                              if (!isAndroid && !showPlayerPanel && !isImmersive && !isLandscape)
-                                                const Align(
-                                                  alignment: Alignment.bottomCenter,
-                                                  child: MiniPlayer(),
-                                                ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
+                                    ),
+                                  ),
+                                ),
+                                AnimatedContainer(
+                                  duration: duration,
+                                  curve: curve,
+                                  width: (isAndroid && !isLandscape)
+                                      ? 0.0
+                                      : (showPlayerPanel
+                                          ? (isImmersive
+                                              ? screenWidth
+                                              : (screenWidth >= 1200 ? 360.0 : (screenWidth * 0.35).clamp(260.0, 320.0)))
+                                          : 0.0),
+                                  child: ClipRect(
+                                    child: OverflowBox(
+                                      minWidth: isImmersive ? screenWidth : 260.0,
+                                      maxWidth: isImmersive
+                                          ? screenWidth
+                                          : (screenWidth >= 1200 ? 360.0 : (screenWidth * 0.35).clamp(260.0, 320.0)),
+                                      alignment: Alignment.centerRight,
+                                      child: const PersistentPlayerPanel(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if ((!isAndroid || isLandscape) && !showPlayerPanel)
+                            Positioned.fill(
+                              child: AnimatedSlide(
+                                offset: isImmersive ? Offset.zero : const Offset(0.0, 1.0),
+                                duration: duration,
+                                curve: curve,
+                                child: IgnorePointer(
+                                  ignoring: !isImmersive,
+                                  child: const PlayerBackground(
+                                    child: ImmersivePlayer(key: ValueKey('immersive_desktop')),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                          AnimatedContainer(
-                            duration: duration,
-                            curve: curve,
-                            width: (isAndroid && !isLandscape)
-                                ? 0.0
-                                : (isImmersive
-                                    ? screenWidth
-                                    : (showPlayerPanel
-                                        ? (screenWidth >= 1200 ? 360.0 : (screenWidth * 0.35).clamp(260.0, 320.0))
-                                        : 0.0)),
-                            child: ClipRect(
-                              child: OverflowBox(
-                                minWidth: isImmersive ? screenWidth : 260.0,
-                                maxWidth: isImmersive
-                                    ? screenWidth
-                                    : (screenWidth >= 1200 ? 360.0 : (screenWidth * 0.35).clamp(260.0, 320.0)),
-                                alignment: Alignment.centerRight,
-                                child: PersistentPlayerPanel(),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -246,7 +264,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 ),
               ),
               if (isAndroid) ...[
-                const AndroidSlidingPlayer(),
+                if (!isLandscape) const AndroidSlidingPlayer(),
                 AnimatedSlide(
                   offset: (isLandscape || isImmersive) ? const Offset(0, 1.5) : Offset.zero,
                   duration: duration,
@@ -277,8 +295,8 @@ class _DesktopNavRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isImmersive = ref.watch(immersiveModeProvider);
-    final duration = ref.scaledDuration(isImmersive ? DAMotion.large : const Duration(milliseconds: 380));
-    final curve = ref.scaledCurve(DAMotion.fastOutSlowIn);
+    final duration = ref.scaledDuration(DAMotion.playerDuration);
+    final curve = isImmersive ? ref.scaledCurve(DAMotion.exitCurve) : ref.scaledCurve(DAMotion.enterCurve);
 
     return AnimatedContainer(
       duration: duration,
@@ -325,13 +343,42 @@ class _AndroidBottomDock extends ConsumerWidget {
   }
 }
 
-class _MobileBottomNavBar extends StatelessWidget {
+class _MobileBottomNavBar extends ConsumerWidget {
   const _MobileBottomNavBar();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.daColors;
     final location = GoRouterState.of(context).matchedLocation;
+    final isM3 = ref.watch(appThemeModeProvider) == AppThemeMode.material3;
+
+    if (isM3) {
+      int selectedIndex = 0;
+      if (location.startsWith('/search')) selectedIndex = 1;
+      else if (location.startsWith('/library')) selectedIndex = 2;
+      else if (location.startsWith('/favorites')) selectedIndex = 3;
+      else if (location.startsWith('/settings')) selectedIndex = 4;
+
+      return NavigationBar(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (index) {
+          switch (index) {
+            case 0: context.go('/'); break;
+            case 1: context.go('/search'); break;
+            case 2: context.go('/library'); break;
+            case 3: context.go('/favorites'); break;
+            case 4: context.go('/settings'); break;
+          }
+        },
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.search_outlined), selectedIcon: Icon(Icons.search_rounded), label: 'Search'),
+          NavigationDestination(icon: Icon(Icons.my_library_music_outlined), selectedIcon: Icon(Icons.my_library_music_rounded), label: 'Library'),
+          NavigationDestination(icon: Icon(Icons.favorite_outline_rounded), selectedIcon: Icon(Icons.favorite_rounded), label: 'Favorites'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings_rounded), label: 'Settings'),
+        ],
+      );
+    }
 
     return Container(
       height: 64.0,

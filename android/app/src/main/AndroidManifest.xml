@@ -54,9 +54,8 @@
             </intent-filter>
         </receiver>
 
-        <!-- Android Home Screen Widget Provider (Single Responsive Widget) -->
-        <receiver android:name=".DAWidgetProvider"
-            android:label="DA Tunes Widget"
+        <receiver android:name=".DAWidget2x2Provider"
+            android:label="DA Tunes (2x2)"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -68,7 +67,71 @@
                 <action android:name="com.vikrantruhela.datunes.ACTION_FAVORITE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
+                android:resource="@xml/widget_info_2x2" />
+        </receiver>
+
+        <receiver android:name=".DAWidget4x2Provider"
+            android:label="DA Tunes (4x2)"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_PLAY_PAUSE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_NEXT" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_PREVIOUS" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_SHUFFLE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_REPEAT" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_FAVORITE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_4x2" />
+        </receiver>
+
+        <receiver android:name=".DAWidget2x1Provider"
+            android:label="DA Tunes (2x1)"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_PLAY_PAUSE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_NEXT" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_PREVIOUS" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_SHUFFLE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_REPEAT" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_FAVORITE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_2x1" />
+        </receiver>
+
+        <receiver android:name=".DAM3Widget4x2Provider"
+            android:label="DA Tunes M3 (4x2)"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_PLAY_PAUSE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_NEXT" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_PREVIOUS" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_SHUFFLE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_REPEAT" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_FAVORITE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_m3_4x2" />
+        </receiver>
+
+        <receiver android:name=".DAM3Widget2x2Provider"
+            android:label="DA Tunes M3 (2x2)"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_PLAY_PAUSE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_NEXT" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_PREVIOUS" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_SHUFFLE" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_REPEAT" />
+                <action android:name="com.vikrantruhela.datunes.ACTION_FAVORITE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_m3_2x2" />
         </receiver>
     </application>
     <!-- Required to query activities that can process text, see:

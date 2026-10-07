@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'playback_controller.dart';
 import '../../shared/models/music_models.dart';
@@ -9,11 +10,14 @@ import '../../shared/models/playback_state.dart' as clean;
 import 'logger_service.dart';
 import '../../shared/providers/library_providers.dart';
 
-/// Global reference to bridge audio_service callbacks back to the controller.
 class SystemMediaSessionManager {
   static PlaybackController? controller;
   static MyAudioHandler? _audioHandler;
   static StreamSubscription? _controllerSubscription;
+  static StreamSubscription? _becomingNoisySubscription;
+  static StreamSubscription? _devicesSubscription;
+  static StreamSubscription? _interruptionSubscription;
+  static Set<AudioDevice>? _previousDevices;
   static Timer? _positionTimer;
 
   static clean.PlaybackStatus? _lastStatus;
@@ -23,6 +27,10 @@ class SystemMediaSessionManager {
 
   static Future<void> initialize(PlaybackController playbackController) async {
     controller = playbackController;
+
+    if (!kIsWeb) {
+      _setupEarphoneDisconnectListener();
+    }
 
     if (kIsWeb) return;
     if (!Platform.isAndroid && !Platform.isWindows) return;
@@ -42,6 +50,68 @@ class SystemMediaSessionManager {
       _setupStateListener();
     } catch (e, stack) {
       DALogger.error('SystemMediaSessionManager: Initialization failed', e, stack);
+    }
+  }
+
+  static Future<void> _setupEarphoneDisconnectListener() async {
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.music());
+
+      _becomingNoisySubscription?.cancel();
+      _becomingNoisySubscription = session.becomingNoisyEventStream.listen((_) {
+        DALogger.info('SystemMediaSessionManager: Earphones disconnected. Pausing song.');
+        final c = controller;
+        if (c != null && c.status == clean.PlaybackStatus.playing) {
+          c.pause();
+        }
+      });
+
+      _interruptionSubscription?.cancel();
+      _interruptionSubscription = session.interruptionEventStream.listen((event) {
+        if (event.begin) {
+          DALogger.info('SystemMediaSessionManager: Audio interruption started. Pausing song.');
+          final c = controller;
+          if (c != null && c.status == clean.PlaybackStatus.playing) {
+            c.pause();
+          }
+        }
+      });
+
+      _devicesSubscription?.cancel();
+      _devicesSubscription = session.devicesStream.listen((devices) {
+        final currentDevices = devices.toSet();
+        if (_previousDevices != null) {
+          final removed = _previousDevices!.difference(currentDevices);
+          for (final device in removed) {
+            final typeStr = device.type.toString().toLowerCase();
+            final nameStr = device.name.toLowerCase();
+            final isEarphoneOrHeadset = typeStr.contains('headset') ||
+                typeStr.contains('headphone') ||
+                typeStr.contains('bluetooth') ||
+                typeStr.contains('a2dp') ||
+                typeStr.contains('usb') ||
+                typeStr.contains('hearingaid') ||
+                nameStr.contains('earphone') ||
+                nameStr.contains('headphone') ||
+                nameStr.contains('headset') ||
+                nameStr.contains('airpod') ||
+                nameStr.contains('bud');
+
+            if (isEarphoneOrHeadset) {
+              DALogger.info('SystemMediaSessionManager: Earphone device removed (${device.name}). Pausing song.');
+              final c = controller;
+              if (c != null && c.status == clean.PlaybackStatus.playing) {
+                c.pause();
+              }
+              break;
+            }
+          }
+        }
+        _previousDevices = currentDevices;
+      });
+    } catch (e, stack) {
+      DALogger.error('SystemMediaSessionManager: Earphone disconnect listener setup failed', e, stack);
     }
   }
 
@@ -127,6 +197,9 @@ class SystemMediaSessionManager {
   static void dispose() {
     _positionTimer?.cancel();
     _controllerSubscription?.cancel();
+    _becomingNoisySubscription?.cancel();
+    _interruptionSubscription?.cancel();
+    _devicesSubscription?.cancel();
     controller?.removeListener(_onControllerStateChanged);
   }
 }
@@ -326,7 +399,7 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   @override
-  Future<dynamic> onCustomAction(String name, Map<String, dynamic>? extras) async {
+  Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) async {
     if (name == "toggle_favorite") {
       final c = SystemMediaSessionManager.controller;
       if (c != null) {

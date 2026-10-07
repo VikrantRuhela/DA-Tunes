@@ -110,10 +110,12 @@ class _SongTileState extends State<SongTile> {
                     ),
                     const SizedBox(width: DATokens.spacingMedium),
 
-                    // Duration
-                    Text(
-                      widget.duration,
-                      style: typography.caption.copyWith(color: colors.textSecondary),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        widget.duration,
+                        style: typography.caption.copyWith(color: colors.textSecondary),
+                      ),
                     ),
                     if (widget.onMorePressed != null) ...[
                       const SizedBox(width: DATokens.spacingSmall),

@@ -6,6 +6,7 @@ import '../../../shared/widgets/da_card.dart';
 import '../data/local_library_repository.dart';
 import 'local_category_page.dart';
 import 'library_management_page.dart';
+import '../../../shared/animations/motion_system.dart';
 
 class LocalLibraryTab extends ConsumerWidget {
   const LocalLibraryTab({super.key});
@@ -91,7 +92,7 @@ class LocalLibraryTab extends ConsumerWidget {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const LibraryManagementPage()),
+                        DAMotion.createPageRoute(builder: (context) => const LibraryManagementPage()),
                       );
                     },
                   ),
@@ -118,7 +119,7 @@ class LocalLibraryTab extends ConsumerWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
+                      DAMotion.createPageRoute(
                         builder: (context) => LocalCategoryPage(category: cat.category),
                       ),
                     );

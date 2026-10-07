@@ -24,9 +24,9 @@ class _ExpandButtonState extends State<ExpandButton> {
 
     double scale = 1.0;
     if (_isPressed) {
-      scale = 0.96;
+      scale = 0.98;
     } else if (_isHovered) {
-      scale = 1.08;
+      scale = 1.02;
     }
 
     final duration = _isPressed ? DATokens.durationMedium : DATokens.durationFast;

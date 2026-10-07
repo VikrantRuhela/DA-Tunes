@@ -11,6 +11,7 @@ import '../../../shared/animations/motion_system.dart';
 import '../../../shared/providers/source_providers.dart';
 import '../../../shared/providers/library_providers.dart';
 import '../../../shared/providers/player_providers.dart';
+import '../../../shared/providers/theme_providers.dart';
 import '../../../shared/providers/backend_providers.dart' hide sourceManagerProvider;
 import '../../../shared/widgets/da_card.dart';
 import '../../taste_engine/presentation/music_dna_page.dart';
@@ -107,14 +108,15 @@ class SettingsPage extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(
-          horizontal: DATokens.spacingLarge,
-          vertical: DATokens.spacingMedium,
+        padding: EdgeInsets.only(
+          left: DATokens.spacingLarge,
+          right: DATokens.spacingLarge,
+          top: DATokens.spacingMedium,
+          bottom: Theme.of(context).platform == TargetPlatform.android ? 160.0 : DATokens.spacingMedium,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Page Header
             Padding(
               padding: const EdgeInsets.only(bottom: DATokens.spacingLarge),
               child: Text(
@@ -123,12 +125,10 @@ class SettingsPage extends ConsumerWidget {
               ),
             ),
 
-            // Section 0: YouTube Music Account Management
             _buildSectionHeader(context, 'YouTube Music'),
             _buildYtmAccountSection(context, ref, colors, typography),
             const SizedBox(height: DATokens.spacingLarge),
 
-            // Section 1: Animations & Motion System
             _buildSectionHeader(context, 'Motion & Accessibility'),
             DACard(
               child: Column(
@@ -176,48 +176,103 @@ class SettingsPage extends ConsumerWidget {
             ),
             const SizedBox(height: DATokens.spacingLarge),
 
-            // Section 1.5: Appearance
             _buildSectionHeader(context, 'Appearance'),
             DACard(
               child: Column(
                 children: [
-                  _buildSwitchTile(
+                  _buildDropdownTile<AppThemeMode>(
                     context: context,
-                    icon: Icons.image_outlined,
-                    title: 'Show Album Art as Background',
-                    subtitle: 'Use blurred current playing album artwork as app background',
-                    value: showAlbumArt,
-                    onChanged: (val) {
-                      ref.read(showAlbumArtBackgroundProvider.notifier).toggle(val);
-                    },
-                  ),
-                  const Divider(height: 1),
-                  _buildDropdownTile<PlayerStyle>(
-                    context: context,
-                    icon: Icons.play_circle_outline,
-                    title: 'Player Style',
-                    subtitle: 'Select the visual theme for full screen playback',
-                    value: ref.watch(playerStyleProvider),
+                    icon: Icons.palette_outlined,
+                    title: 'App Theme',
+                    subtitle: 'Choose between DA Tunes Default dynamic colors, Pitch Black AMOLED, and Material 3',
+                    value: ref.watch(appThemeModeProvider),
                     items: const [
                       DropdownMenuItem(
-                        value: PlayerStyle.immersive,
-                        child: Text('Immersive'),
+                        value: AppThemeMode.defaultDA,
+                        child: Text('DA Tunes Default'),
                       ),
                       DropdownMenuItem(
-                        value: PlayerStyle.vinyl,
-                        child: Text('Vinyl'),
+                        value: AppThemeMode.amoled,
+                        child: Text('AMOLED'),
                       ),
                       DropdownMenuItem(
-                        value: PlayerStyle.minimal,
-                        child: Text('Minimal'),
+                        value: AppThemeMode.material3,
+                        child: Text('Material 3'),
                       ),
                     ],
                     onChanged: (val) {
                       if (val != null) {
-                        ref.read(playerStyleProvider.notifier).setStyle(val);
+                        ref.read(appThemeModeProvider.notifier).setThemeMode(val);
                       }
                     },
                   ),
+                  if (ref.watch(appThemeModeProvider) == AppThemeMode.material3) ...[
+                    const Divider(height: 1),
+                    _buildDropdownTile<M3ThemeMode>(
+                      context: context,
+                      icon: Icons.brightness_6_outlined,
+                      title: 'Material 3 Appearance',
+                      subtitle: 'Select Light or Dark theme for Material 3 presentation',
+                      value: ref.watch(m3ThemeModeProvider),
+                      items: const [
+                        DropdownMenuItem(
+                          value: M3ThemeMode.dark,
+                          child: Text('Dark'),
+                        ),
+                        DropdownMenuItem(
+                          value: M3ThemeMode.light,
+                          child: Text('Light'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          ref.read(m3ThemeModeProvider.notifier).setMode(val);
+                        }
+                      },
+                    ),
+                  ],
+                  if (ref.watch(appThemeModeProvider) != AppThemeMode.material3) ...[
+                    const Divider(height: 1),
+                    _buildSwitchTile(
+                      context: context,
+                      icon: Icons.image_outlined,
+                      title: 'Show Album Art as Background',
+                      subtitle: 'Use blurred current playing album artwork as app background',
+                      value: showAlbumArt,
+                      onChanged: (val) {
+                        ref.read(showAlbumArtBackgroundProvider.notifier).toggle(val);
+                      },
+                    ),
+                  ],
+                  if (ref.watch(appThemeModeProvider) == AppThemeMode.defaultDA) ...[
+                    const Divider(height: 1),
+                    _buildDropdownTile<PlayerStyle>(
+                      context: context,
+                      icon: Icons.play_circle_outline,
+                      title: 'Player Style',
+                      subtitle: 'Select the visual theme for full screen playback',
+                      value: ref.watch(playerStyleNotifierProvider),
+                      items: const [
+                        DropdownMenuItem(
+                          value: PlayerStyle.immersive,
+                          child: Text('Immersive'),
+                        ),
+                        DropdownMenuItem(
+                          value: PlayerStyle.vinyl,
+                          child: Text('Vinyl'),
+                        ),
+                        DropdownMenuItem(
+                          value: PlayerStyle.minimal,
+                          child: Text('Minimal'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          ref.read(playerStyleNotifierProvider.notifier).setStyle(val);
+                        }
+                      },
+                    ),
+                  ],
                   const Divider(height: 1),
                   _buildSwitchTile(
                     context: context,
@@ -308,7 +363,6 @@ class SettingsPage extends ConsumerWidget {
             ),
             const SizedBox(height: DATokens.spacingLarge),
 
-             // Section 2: Storage & Cache Management
              _buildSectionHeader(context, 'Cache & Local Storage'),
              DACard(
                child: Column(
@@ -467,7 +521,6 @@ class SettingsPage extends ConsumerWidget {
              ),
             const SizedBox(height: DATokens.spacingLarge),
 
-            // Section 3: General Developer Options
             _buildSectionHeader(context, 'Developer Options'),
             DACard(
               child: Column(
@@ -499,7 +552,7 @@ class SettingsPage extends ConsumerWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const MusicDnaPage()),
+                        DAMotion.createPageRoute(builder: (context) => const MusicDnaPage()),
                       );
                     },
                   ),
@@ -512,7 +565,7 @@ class SettingsPage extends ConsumerWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const TasteSettingsPage()),
+                        DAMotion.createPageRoute(builder: (context) => const TasteSettingsPage()),
                       );
                     },
                   ),
@@ -605,7 +658,7 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const AboutPage()),
+                    DAMotion.createPageRoute(builder: (context) => const AboutPage()),
                   );
                 },
               ),
@@ -643,10 +696,23 @@ class SettingsPage extends ConsumerWidget {
   }) {
     final colors = context.daColors;
     final typography = context.daTypography;
+    final isCompact = MediaQuery.of(context).size.width < 420;
     return ListTile(
-      leading: Icon(icon, color: colors.primary),
-      title: Text(title, style: typography.title.copyWith(fontSize: 15.0)),
-      subtitle: Text(subtitle, style: typography.body.copyWith(fontSize: 12.0, color: colors.textSecondary)),
+      dense: isCompact,
+      contentPadding: EdgeInsets.symmetric(horizontal: isCompact ? 12.0 : 16.0, vertical: 2.0),
+      leading: Icon(icon, color: colors.primary, size: isCompact ? 20.0 : 24.0),
+      title: Text(
+        title,
+        style: typography.title.copyWith(fontSize: isCompact ? 14.0 : 15.0),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        subtitle,
+        style: typography.body.copyWith(fontSize: isCompact ? 11.0 : 12.0, color: colors.textSecondary),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
       trailing: Switch.adaptive(
         value: value,
         activeThumbColor: colors.primary,
@@ -666,17 +732,34 @@ class SettingsPage extends ConsumerWidget {
   }) {
     final colors = context.daColors;
     final typography = context.daTypography;
+    final isCompact = MediaQuery.of(context).size.width < 420;
     return ListTile(
-      leading: Icon(icon, color: colors.primary),
-      title: Text(title, style: typography.title.copyWith(fontSize: 15.0)),
-      subtitle: Text(subtitle, style: typography.body.copyWith(fontSize: 12.0, color: colors.textSecondary)),
-      trailing: DropdownButton<T>(
-        value: value,
-        items: items,
-        onChanged: onChanged,
-        underline: const SizedBox.shrink(),
-        dropdownColor: colors.surfaceCard,
-        style: typography.body.copyWith(fontSize: 14.0, color: colors.textPrimary),
+      dense: isCompact,
+      contentPadding: EdgeInsets.symmetric(horizontal: isCompact ? 12.0 : 16.0, vertical: 2.0),
+      leading: Icon(icon, color: colors.primary, size: isCompact ? 20.0 : 24.0),
+      title: Text(
+        title,
+        style: typography.title.copyWith(fontSize: isCompact ? 14.0 : 15.0),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        subtitle,
+        style: typography.body.copyWith(fontSize: isCompact ? 11.0 : 12.0, color: colors.textSecondary),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: isCompact ? 120.0 : 160.0),
+        child: DropdownButton<T>(
+          value: value,
+          items: items,
+          onChanged: onChanged,
+          isExpanded: true,
+          underline: const SizedBox.shrink(),
+          dropdownColor: colors.surfaceCard,
+          style: typography.body.copyWith(fontSize: isCompact ? 12.0 : 14.0, color: colors.textPrimary),
+        ),
       ),
     );
   }
@@ -895,7 +978,7 @@ class SettingsPage extends ConsumerWidget {
     if (Platform.isAndroid || Platform.isIOS) {
       final success = await Navigator.push<bool>(
         context,
-        MaterialPageRoute(builder: (context) => const AuthWebViewPage()),
+        DAMotion.createPageRoute(builder: (context) => const AuthWebViewPage()),
       );
       if (success == true) {
         ref.read(ytmSyncManagerProvider.notifier).startSync();
@@ -926,7 +1009,7 @@ class SettingsPage extends ConsumerWidget {
                 Navigator.pop(context);
                 final success = await Navigator.push<bool>(
                   context,
-                  MaterialPageRoute(builder: (context) => const AuthWebViewPage()),
+                  DAMotion.createPageRoute(builder: (context) => const AuthWebViewPage()),
                 );
                 if (success == true) {
                   ref.read(ytmSyncManagerProvider.notifier).startSync();
